@@ -5,222 +5,422 @@ classdef CrampFit < handle
         data
         fig
         panels
-        xaxis
+        xaxes
         sigs
+    end
+    properties
+        DEFS
     end
     
     methods
         function obj = CrampFit(fname)
+            % some UI defs
+            obj.DEFS = [];
+            obj.DEFS.LEFTWID        = 60;
+            obj.DEFS.BOTHEIGHT      = 60;
+            obj.DEFS.BUTWID         = 20;
+            obj.DEFS.BUTLEFT        = 3;
+            obj.DEFS.BUTBOT         = 3;
+            
             % for now, let's just load data as we open program
             obj.data = SignalData(fname);
             % start making GUI objects
             obj.fig = figure('Name','CrampFit!!!1111','MenuBar','none',...
                 'NumberTitle','off');
             
-            % the main border layout container, top bar, bottom bar, and
-            % middle signal panels
-            obj.panels = BorderLayout(obj.fig,50,60,0,0);
-            % give it a padded border, so the axes that live in it are
-            % lined up with the ones above it
-            set(obj.panels.South,'BorderType','line','BorderWidth',1);
-            set(obj.panels.South,'HighlightColor',get(obj.panels.South,'BackgroundColor'));
-            set(obj.panels.Center,'BorderType','none');
+            % the main layout components
+            obj.panels = [];
+            obj.panels.Middle = uipanel('Parent',obj.fig,'Position',[0 0.5 1 0.5],'Units','Pixels');
+            obj.panels.Bottom = uipanel('Parent',obj.fig,'Position',[0 0.5 1 0.5],'Units','Pixels');
             
-            function b = isIn(pos,p)
-                if (pos(1) > p(1) && pos(1) < (p(1)+p(3)) &&...
-                            pos(2) > p(2) && pos(2) < (p(2)+p(4)))
-                    b = 1;
-                else
-                    b = 0;
-                end
-            end
-            function [h ind]=getHandle(pos)
-                for i=1:2
-                    p = getpixelposition(obj.sigs(i).haxes,true);
-                    if isIn(pos,p)
-                        h = obj.sigs(i).haxes;
-                        ind = i;
-                        return;
-                    end
-                end
-                h = -1;
-                ind = -1;
-            end
-            function scrollCallback(h,e)
-                pos = get(obj.fig,'CurrentPoint');
-                [h ind] = getHandle(pos);
-                if (h==-1)
-                    return
-                end
-                pt = get(obj.sigs(ind).haxes,'CurrentPoint');
-                pty = pt(1,2);
-                ylim = obj.sigs(ind).getY();
-                s = 0.5*e.VerticalScrollCount;
-                ylim = sort(pty + (1+s)*(ylim-pty));
-                obj.sigs(ind).setY(ylim);
-            end
-            function mouseMoveX(h,e,r)
-                pt0 = get(obj.xaxis,'UserData');
-                pt1 = get(obj.xaxis,'CurrentPoint');
-                xr = sort([pt0(1) pt1(1,1)]);
+            % give it an invisible padded border, so the axes that live 
+            % in it are automatically lined up with the ones above it
+            %set(obj.panels.Bottom,'BorderType','line','BorderWidth',1);
+            %set(obj.panels.Bottom,'HighlightColor',get(obj.panels.Bottom,'BackgroundColor'));
+            set(obj.panels.Bottom,'BorderType','none');
+            set(obj.panels.Middle,'BorderType','none');
+            
+            % handles the resizing of the main panels
+            function mainResizeFcn(o,e)
+                sz = getPixelPos(obj.fig);
 
-                set(r,'Parent',obj.xaxis);
-                set(r,'YData',[0,0],'XData',xr,'LineWidth',8);
+                % 
+                set(obj.panels.Bottom,'Position',[1,0,sz(3)+2,obj.DEFS.BOTHEIGHT]);
+                % set this guy outside the edges of the figure by one pixel
+                % horizontally, to hide the border on the sides
+                set(obj.panels.Middle,'Position',[0,obj.DEFS.BOTHEIGHT,sz(3)+2,sz(4)-obj.DEFS.BOTHEIGHT]);
             end
-            function mouseMoveY(h,e,ind,r)
-                pt0 = get(obj.sigs(ind).hyaxis,'UserData');
-                pt1 = get(obj.sigs(ind).hyaxis,'CurrentPoint');
-                yr = sort([pt0(2) pt1(1,2)]);
-
-                set(r,'Parent',obj.sigs(ind).hyaxis);
-                set(r,'XData',[0,0],'YData',yr,'LineWidth',5);
-            end
-            function mouseUpX(h,e,r)
-                delete(r);
-                pt0 = get(obj.xaxis,'UserData');
-                set(obj.xaxis,'UserData','');
-                pt1 = get(obj.xaxis,'CurrentPoint');
-                xrange = sort([pt0(1) pt1(1,1)]);
-                if xrange(1)==xrange(2)
-                    return
-                end
-                obj.setView(xrange);
-                set(obj.fig,'WindowButtonUpFcn','');
-                set(obj.fig,'WindowButtonMotionFcn','');
-            end
-            function mouseUpY(h,e,ind,r)
-                delete(r);
-                pt0 = get(obj.sigs(ind).hyaxis,'UserData');
-                set(obj.sigs(ind).hyaxis,'UserData','');
-                pt1 = get(obj.sigs(ind).hyaxis,'CurrentPoint');
-                yrange = sort([pt0(2) pt1(1,2)]);
-                if yrange(1)==yrange(2)
-                    return
-                end
-                obj.sigs(ind).setY(yrange);
-                set(obj.fig,'WindowButtonUpFcn','');
-                set(obj.fig,'WindowButtonMotionFcn','');
-            end
-            function mouseDown(h,e)
-                pos = get(obj.fig,'CurrentPoint');
-                % check if it's within x-region
-                conts = [obj.sigs(1).handle.West,obj.sigs(2).handle.West,obj.panels.South];
-                axs = [obj.sigs(1).haxes,obj.sigs(2).haxes,obj.xaxis];
-                ind = -1;
-                for i=1:3
-                    p = getpixelposition(conts(i),true);
-                    if (i < 3)
-                        p(1) = p(1) + 30;
-                        p(3) = p(3) - 30;
-                    else
-                        p(2) = p(2) + 30;
-                        p(4) = p(4) - 30;
-                    end
-                    if isIn(pos,p)
-                        ind = i;
-                        break;
-                    end
-                end
-                if (ind == -1)
-                    return
-                end
-                pt = get(axs(ind),'CurrentPoint');
-                set(axs(ind),'UserData',pt(1,1:2));
-                r = line();
-                if (ind < 3)
-                    set(obj.fig,'WindowButtonUpFcn',{@mouseUpY, ind, r});
-                    set(obj.fig,'WindowButtonMotionFcn',{@mouseMoveY, ind, r});
-                else
-                    set(obj.fig,'WindowButtonUpFcn',{@mouseUpX, r});
-                    set(obj.fig,'WindowButtonMotionFcn',{@mouseMoveX, r});
-                end
-            end
+            set(obj.fig,'ResizeFcn',@mainResizeFcn);
+            mainResizeFcn
             
-            set(obj.fig,'WindowScrollWheelFcn',@scrollCallback);
-            set(obj.fig,'WindowButtonDownFcn',@mouseDown);
-            
-            sig1p = uipanel('Parent',obj.panels.Center,'Position',[0 0.5 1 0.5]);
-            set(sig1p,'BorderType','line','BorderWidth',1);
-            set(sig1p,'HighlightColor','black');
-
-            sig2p = uipanel('Parent',obj.panels.Center,'Position',[0 0 1 0.5]);
-            set(sig2p,'BorderType','line','BorderWidth',1);
-            set(sig2p,'HighlightColor','black');
-            
-            obj.sigs = obj.sigPanel(sig1p);
-            obj.sigs(2) = obj.sigPanel(sig2p);
-            
-            % make a dummy panel to hold the buttons, so we can set its
-            % resize function to move the buttons around
-            butpanel = uipanel('Parent',obj.panels.South,'Position',[0 0 1 1],'BorderType','none');
-            
+            % ========== X AXIS CODE ===========
             % make an x-axis for display porpoises only. this will need to
             % get resized correctly later, sadly :-/
-            hxaxis = axes('Parent',obj.panels.South,'TickDir','out',...
+            hxaxes = axes('Parent',obj.panels.Bottom,'TickDir','out',...
                 'Position',[0 1 1 0.01],'YTickLabel','');
             
-            obj.xaxis = hxaxis;
+            obj.xaxes = hxaxes;
             
             % again, screw scroll bars
-            function butFcn(h,o,e)
-                xlim = get(hxaxis,'XLim');
+            function shiftX(zoom,offset)
+                xlim = get(hxaxes,'XLim');
                 dx = xlim(2)-xlim(1);
-                switch(e)
-                    case 1
-                        xm = mean(xlim);
-                        xlim = xm+2*(xlim-xm);
-                    case 2
-                        xlim = xlim-dx/8;
-                    case 3
-                        % zoom all the way out, for this one
-                        xlim = [];
-                    case 4
-                        xlim = xlim+dx/8;
-                    case 5
-                        xm = mean(xlim);
-                        xlim = xm+0.5*(xlim-xm);
-                end
+                xm = mean(xlim);
+                xlim = xm+zoom*(xlim-xm);
+                xlim = xlim+dx*offset;
                 obj.setView(xlim);
             end
+            
             % now make the buttons
             nbut = 5;
             buts = zeros(nbut,1);
             
-            buts(1) = uicontrol('Parent', butpanel, 'String','<html>-</html>',...
-                'callback', {@butFcn, 1});
-            buts(2) = uicontrol('Parent', butpanel, 'String','<html>&larr;</html>',...
-                'callback', {@butFcn, 2});
-            buts(3) = uicontrol('Parent', butpanel, 'String','<html>A</html>',...
-                'callback', {@butFcn, 3});
-            buts(4) = uicontrol('Parent', butpanel, 'String','<html>&rarr;</html>',...
-                'callback', {@butFcn, 4});
-            buts(5) = uicontrol('Parent', butpanel, 'String','<html>+</html>',...
-                'callback', {@butFcn, 5});
+            buts(1) = uicontrol('Parent', obj.panels.Bottom, 'String','<html>-</html>',...
+                'callback', @(~,~) shiftX(2,0));
+            buts(2) = uicontrol('Parent', obj.panels.Bottom, 'String','<html>&larr;</html>',...
+                'callback', @(~,~) shiftX(1,-0.25));
+            buts(3) = uicontrol('Parent', obj.panels.Bottom, 'String','<html>R</html>',...
+                'callback', @(~,~) obj.setView([]));
+            buts(4) = uicontrol('Parent', obj.panels.Bottom, 'String','<html>&rarr;</html>',...
+                'callback', @(~,~) shiftX(1,0.25));
+            buts(5) = uicontrol('Parent', obj.panels.Bottom, 'String','<html>+</html>',...
+                'callback', @(~,~) shiftX(0.5,0));
             
             % how to move buttons when thingy gets resized
-            function resizeFcn(o,e)
+            function resizeFcn(~,~)
                 % get height of panel in pixels
-                set(butpanel,'Units','pixels');
-                sz = get(butpanel,'Position');
-                set(butpanel,'Units','normalized');
+                sz = getPixelPos(obj.panels.Bottom);
                 % figure out where the middle is
                 mid = sz(3)/2;
                 for i=1:nbut
                     % position the buttons
-                    set(buts(i),'Position',[mid+(i-nbut/2-1)*20,3,20,20]);
+                    set(buts(i),'Position',[mid+(i-nbut/2-1)*obj.DEFS.BUTWID,obj.DEFS.BUTBOT,obj.DEFS.BUTWID,obj.DEFS.BUTWID]);
                 end
                 % also need to resize x-axis labels
-                set(hxaxis,'Units','Pixels');
-                set(hxaxis,'Position',[sz(1)+60,sz(4)+2,sz(3)-60,1]);
+                set(obj.xaxes,'Units','Pixels');
+                set(obj.xaxes,'Position',[sz(1)+obj.DEFS.LEFTWID,sz(4)+2,sz(3)-obj.DEFS.LEFTWID,1]);
             end
             % set the resize function
-            set(butpanel, 'ResizeFcn', @resizeFcn);
+            set(obj.panels.Bottom, 'ResizeFcn', @resizeFcn);
             % and call it to set default positions
             resizeFcn
             
-            % and set the view to a default value
+            % ========== SIGNALS CODE ===========
+            obj.sigs = obj.makeSignalPanel(obj.panels.Middle);
+            obj.sigs(2) = obj.makeSignalPanel(obj.panels.Middle);
+            
+            set(obj.sigs(1).panel,'Position',[0,0.5,1,0.5]);
+            set(obj.sigs(2).panel,'Position',[0,0,1,0.5]);
+            
+            obj.setMouseCallbacks();
+            
+            % now that it's all made, set the view to a default value
             obj.setView([]);
         end
+        
+        function setMouseCallbacks(obj)
+            % Creates mouse callback interface, by defining a ton of fns
+            
+            % point-rectangle hit test
+            function b = isIn(pos,p)
+                b = false;
+                if (pos(1) > p(1) && pos(1) < (p(1)+p(3)) &&...
+                            pos(2) > p(2) && pos(2) < (p(2)+p(4)))
+                    b = true;
+                end
+            end
+            % function that steps through all relevant objects to figure
+            % out which one is at a given position
+            function [hnd,ind,pt,s] = getHandleAt(pos)
+                % pos should be in pixels
+                if nargin < 1
+                    pos = get(obj.fig,'CurrentPoint');
+                end
+                % first, let's check signals
+                nsig = length(obj.sigs);
+                for i=1:nsig
+                    ind = i;
+                    % did we click on a plot?
+                    if isIn(pos,getpixelposition(obj.sigs(i).axes,true))
+                        hnd = obj.sigs(i).axes;
+                        pt = get(hnd,'CurrentPoint');
+                        pt = pt(1,1:2);
+                        s = 'a';
+                        return;
+                    end
+                    % are we over the y axis part?
+                    if (isIn(pos,getpixelposition(obj.sigs(i).panel,true)) &&...
+                            pos(1) > 0.6*obj.DEFS.LEFTWID)
+                        % return the handle to the main axes anyway, s'more
+                        % useful that way
+                        hnd = obj.sigs(i).axes;
+                        pt = get(hnd,'CurrentPoint');
+                        pt = pt(1,1:2);
+                        s = 'y';
+                        return;
+                    end
+                end
+                % ok, not signals, so let's check x-axis
+                if (isIn(pos,getpixelposition(obj.panels.Bottom)) &&...
+                        pos(2) > 0.6*obj.DEFS.BOTHEIGHT)
+                    hnd = obj.xaxes;
+                    ind = -1;
+                    pt = get(hnd,'CurrentPoint');
+                    pt = pt(1,1:2);
+                    s = 'x';
+                    return;
+                end
+                hnd = -1;
+                ind = -1;
+                pt = [];
+                s = '';
+            end
+            % handles scrolling zoom in-out
+            function scrollCallback(~,e)
+                % figure out what we are over, if anything
+                [hnd,ind,pt,s] = getHandleAt();
+                
+                % quit if found nothing
+                if (hnd==-1)
+                    return
+                end
+                
+                if (s == 'y')
+                    % we're scrolling inside a y-axis, scroll y-lims
+                    pty = pt(2);
+                    ylim = obj.sigs(ind).getY();
+                    s = 0.5*e.VerticalScrollCount;
+                    ylim = sort(pty + (1+s)*(ylim-pty));
+                    obj.sigs(ind).setY(ylim);
+                elseif (s == 'a' || s == 'x')
+                    % we're scrolling in a plot, scroll the time axis
+                    ptx = pt(1);
+                    xlim = get(obj.xaxes,'XLim');
+                    s = 0.5*e.VerticalScrollCount;
+                    xlim = sort(ptx + (1+s)*(xlim-ptx));
+                    obj.setView(xlim);
+                end
+            end
+            
+            function mouseMoveX(r)
+                % get start and current point
+                pt0 = get(obj.xaxes,'UserData');
+                pt1 = get(obj.xaxes,'CurrentPoint');
+                % convert to x-range
+                xr = sort([pt0(1) pt1(1,1)]);
+                % update the line
+                set(r,'YData',[0,0],'XData',xr,'LineWidth',8);
+            end
+            function mouseMoveY(r,ind)
+                % get start and current point
+                pt0 = get(obj.sigs(ind).yaxes,'UserData');
+                pt1 = get(obj.sigs(ind).yaxes,'CurrentPoint');
+                % y-range, sorted
+                yr = sort([pt0(2) pt1(1,2)]);
+                % set x limits of y-line
+                xl = get(obj.sigs(ind).yaxes,'XLim');
+                % and update the line
+                set(r,'XData',[xl(1),xl(1)],'YData',yr,'LineWidth',5);
+            end
+            function mouseUpX(r)
+                % kill the line
+                delete(r);
+                % get the x-range one last time
+                pt0 = get(obj.xaxes,'UserData');
+                pt1 = get(obj.xaxes,'CurrentPoint');
+                xrange = sort([pt0(1) pt1(1,1)]);
+                % make sure we zoomed at all
+                if xrange(1)==xrange(2)
+                    return
+                end
+                % then update the view
+                obj.setView(xrange);
+                % and clear callbacks
+                set(obj.fig,'WindowButtonUpFcn','');
+                set(obj.fig,'WindowButtonMotionFcn','');
+            end
+            function mouseUpY(r,ind)
+                % kill the line
+                delete(r);
+                % y-range as usual
+                pt0 = get(obj.sigs(ind).yaxes,'UserData');
+                pt1 = get(obj.sigs(ind).yaxes,'CurrentPoint');
+                yrange = sort([pt0(2) pt1(1,2)]);
+                if yrange(1)==yrange(2)
+                    return
+                end
+                % zoom in
+                obj.sigs(ind).setY(yrange);
+                % and clear callbacks
+                set(obj.fig,'WindowButtonUpFcn','');
+                set(obj.fig,'WindowButtonMotionFcn','');
+            end
+            function mouseMovePan(ind)
+                % this is the doozy
+                pt0 = get(obj.sigs(ind).yaxes,'UserData');
+                pt1 = get(obj.sigs(ind).axes,'CurrentPoint');
+                pt1 = pt1(1,1:2);
+                % so we want to get pt0 and pt1 equal
+                % to get that guy under the mouse
+                dpt = pt1-pt0;
+                % and x axis
+                xl = get(obj.xaxes,'XLim');
+                obj.setView(xl - dpt(1));
+                % now update y-axis
+                yl = obj.sigs(ind).getY();
+                obj.sigs(ind).setY(yl-dpt(2));
+            end
+            function mouseUpPan()
+                % clear callbacks
+                set(obj.fig,'WindowButtonUpFcn','');
+                set(obj.fig,'WindowButtonMotionFcn','');
+            end
+            function mouseDown(~,~)
+                % figure out what we are over, if anything
+                [hnd,ind,pt,s] = getHandleAt();
+                
+                sel = get(obj.fig,'SelectionType');
+                if (hnd == -1)
+                    return
+                end
+                
+                % see if we are dragging on x or y axes
+                if (s == 'x' && strcmp(sel,'normal'))
+                    % make a line
+                    r = line();
+                    set(r,'Parent',obj.xaxes);
+                    % store the drag start point
+                    set(obj.xaxes,'UserData',pt);
+                    % and set appropriate callbacks, with line as data
+                    set(obj.fig,'WindowButtonUpFcn',@(~,~) mouseUpX(r));
+                    set(obj.fig,'WindowButtonMotionFcn',@(~,~) mouseMoveX(r));
+                elseif (s == 'y' && strcmp(sel,'normal'))
+                    % make a line
+                    r = line();
+                    set(r,'Parent',obj.sigs(ind).yaxes);
+                    % store the drag start point
+                    set(obj.sigs(ind).yaxes,'UserData',pt);
+                    % and set appropriate callbacks, with line as data
+                    set(obj.fig,'WindowButtonUpFcn',@(~,~) mouseUpY(r, ind));
+                    set(obj.fig,'WindowButtonMotionFcn',@(~,~) mouseMoveY(r, ind));
+                elseif (s == 'a' && strcmp(sel,'extend'))
+                    % store the drag start point
+                    pt
+                    set(obj.sigs(ind).yaxes,'UserData',pt);
+                    % and set the callbacks
+                    set(obj.fig,'WindowButtonUpFcn',@(~,~) mouseUpPan());
+                    set(obj.fig,'WindowButtonMotionFcn',@(~,~) mouseMovePan(ind));
+                end
+            end
+            
+            % set global figure callbacks
+            set(obj.fig,'WindowScrollWheelFcn',@scrollCallback);
+            set(obj.fig,'WindowButtonDownFcn',@mouseDown);
+        end
+        
+        function sig = makeSignalPanel(obj, parent)
+            % create and ultimately return a struct containing panel info
+            sig = [];
+            
+            % make a panel to hold the entire thing
+            sig.panel = uipanel('Parent',parent,'Position',[0 0 1 1],'Units','Normalized');
+            % give it a stylish border
+            set(sig.panel,'BorderType','line','BorderWidth',1);
+            set(sig.panel,'HighlightColor','black');
+            
+            % first make a fake axes object that just displays the label
+            sig.yaxes = axes('Parent',sig.panel,'Position',[0 0 1 1],...
+                'TickDir','out','Box','off','XLimMode','manual');
+            % and then the main axes object for showing data
+            sig.axes = axes('Parent',sig.panel,'Position',[0 0 1 1],...
+                'XTickLabel','','YTickLabel','',...
+                'XColor', 0.8*[1 1 1],'YColor', 0.8*[1 1 1],'GridLineStyle','-','Box','on');
+            % and gridify it
+            grid
+            hold(sig.axes)
+
+            % magic function to make Y-axes consistent, saving me some
+            % bookkeeping headaches and stuff
+            linkprop([sig.yaxes sig.axes],{'YLim','Position'});
+            
+            % screw scroll bars, you never need to scroll the current trace
+            % so we'll just do buttons instead
+            % the callback scales the y limits of things
+            function ylim = getY()
+                ylim = get(sig.axes,'YLim');
+            end
+            function setY(ylim)
+                set(sig.axes,'YLimMode','manual');
+                set(sig.axes,'YLim',ylim);
+            end
+            function resetY()
+                set(sig.axes,'YLimMode','auto');
+                ylim = getY();
+                setY(ylim);
+                set(sig.axes,'YLimMode','manual');
+            end
+            function shiftY(zoom,offset)
+                ylim = getY();
+                dy = ylim(2)-ylim(1);
+                ym = mean(ylim);
+                ylim = ym+zoom*(ylim-ym);
+                ylim = ylim+dy*offset;
+                
+                setY(ylim);
+            end
+            % save the y-limit functions to our little struct
+            sig.shiftY = @shiftY;
+            sig.setY = @setY;
+            sig.resetY = @resetY;
+            sig.getY = @getY;
+            
+            
+            % now make the buttons
+            nbut = 5;
+            % store the handles in a little array
+            buts = zeros(nbut,1);
+            % buts isn't getting put in sig, because we don't need to
+            % touch it from the outside...
+            
+            buts(1) = uicontrol('Parent', sig.panel, 'String','<html>-</html>',...
+                'callback', @(~,~) sig.shiftY(2,0));
+            buts(2) = uicontrol('Parent', sig.panel, 'String','<html>&darr;</html>',...
+                'callback', @(~,~) sig.shiftY(1,-0.25));
+            buts(3) = uicontrol('Parent', sig.panel, 'String','<html>A</html>',...
+                'callback', @(~,~) sig.resetY());
+            buts(4) = uicontrol('Parent', sig.panel, 'String','<html>&uarr;</html>',...
+                'callback', @(~,~) sig.shiftY(1,0.25));
+            buts(5) = uicontrol('Parent', sig.panel, 'String','<html>+</html>',...
+                'callback', @(~,~) sig.shiftY(0.5,0));
+            
+            % how to move buttons when thingy gets resized
+            function resizeFcn(~,~)
+                % get height of panel in pixels
+                sz = getPixelPos(sig.panel);
+                % figure out where the middle is
+                mid = sz(4)/2;
+                for i=1:nbut
+                    % position the buttons
+                    set(buts(i),'Position',...
+                        [obj.DEFS.BUTLEFT,mid+(i-nbut/2-1)*obj.DEFS.BUTWID,obj.DEFS.BUTWID,obj.DEFS.BUTWID]);
+                end
+                % now position the axes objects too
+                set(sig.axes,'Units','Pixels');
+                set(sig.yaxes,'Units','Pixels');
+                sz(1) = sz(1) + obj.DEFS.LEFTWID;
+                sz(3) = sz(3) - obj.DEFS.LEFTWID;
+                % set bottom to 1
+                sz(2) = 1;
+                set(sig.axes,'Position',sz);
+                set(sig.yaxes,'Position',sz);
+            end
+            % set the resize function
+            set(sig.panel, 'ResizeFcn', @resizeFcn);
+            % and call it to set default positions
+            resizeFcn            
+        end
+        
+        
         
         function setView(obj,range)
             %SETVIEW sets the x-limits (with bounding, of course)
@@ -235,6 +435,9 @@ classdef CrampFit < handle
             if (dr > obj.data.tend)
                 dr = obj.data.tend;
             end
+            if (dr == 0)
+                return
+            end
             
             if (range(1) < 0)
                 range = range - range(1);
@@ -243,17 +446,17 @@ classdef CrampFit < handle
                 range = [-dr 0] + obj.data.tend;
             end
             
-            set(obj.xaxis,'XLim',range);
-            for h=[obj.sigs.haxes]
+            set(obj.xaxes,'XLim',range);
+            for h=[obj.sigs.axes]
                 set(h,'XLim',range);
             end
             
             d = obj.data.getViewData(range);
             for i=1:2
-                h = obj.sigs(i).haxes;
+                h = obj.sigs(i).axes;
                 ylim = get(h,'YLim');
                 cla(h);
-                plot(obj.sigs(i).haxes,d(:,1),d(:,i+1));
+                plot(obj.sigs(i).axes,d(:,1),d(:,i+1));
                 if (wasempty)
                     obj.sigs(i).resetY();
                 else
@@ -261,118 +464,14 @@ classdef CrampFit < handle
                 end
             end
         end
-        
-        function sig = sigPanel(obj,parent)
-            %SIGPANEL creates panel for a single current trace
-            
-            % make a panel to hold the entire thing
-            % we're doing this so we don't have to overwrite any resize
-            % functions in our parents
-            panel = uipanel('Parent',parent,'Position',[0 0 1 1],'BorderType','none');
-                        
-            % make a main axis object to hold the data
-            
-            hyaxes = axes('Parent',panel,'Position',[0 0 1 1],...
-                'TickDir','out','Box','off');
-            haxes = axes('Parent',panel,'Position',[0 0 1 1],...
-                'XTickLabel','','YTickLabel','',...
-                'XColor', 0.8*[1 1 1],'YColor', 0.8*[1 1 1],'GridLineStyle','-','Box','on');
-            % and gridify it
-            grid
-            hold(haxes)
-
-            % magic function to make Y-axes consistent
-            linkprop([hyaxes haxes],{'YLim','Position'});
-            
-            % screw scroll bars, you never need to scroll the current trace
-            % so we'll just do buttons instead
-            % the callback scales the y limits of things
-            function ylim = getY()
-                ylim = get(haxes,'YLim');
-            end
-            function setY(ylim)
-                set(haxes,'YLimMode','manual');
-                set(haxes,'YLim',ylim);
-            end
-            function resetY()
-                set(haxes,'YLimMode','auto');
-                ylim = getY();
-                setY(ylim);
-                set(haxes,'YLimMode','manual');
-            end
-            function shiftY(zoom,offset)
-                ylim = getY();
-                dy = ylim(2)-ylim(1);
-                ym = mean(ylim);
-                ylim = ym+zoom*(ylim-ym);
-                ylim = ylim+dy*offset;
-                
-                setY(ylim);
-            end
-            
-            function butFcn(h,o,e)
-                switch(e)
-                    case 1
-                        shiftY(2,0);
-                    case 2
-                        shiftY(1,-0.25);
-                    case 3
-                        resetY();
-                    case 4
-                        shiftY(1,0.25);
-                    case 5
-                        shiftY(0.5,0);
-                end
-            end
-            % now make the buttons
-            nbut = 5;
-            buts = zeros(nbut,1);
-            
-            buts(1) = uicontrol('Parent', panel, 'String','<html>-</html>',...
-                'callback', {@butFcn, 1});
-            buts(2) = uicontrol('Parent', panel, 'String','<html>&darr;</html>',...
-                'callback', {@butFcn, 2});
-            buts(3) = uicontrol('Parent', panel, 'String','<html>A</html>',...
-                'callback', {@butFcn, 3});
-            buts(4) = uicontrol('Parent', panel, 'String','<html>&uarr;</html>',...
-                'callback', {@butFcn, 4});
-            buts(5) = uicontrol('Parent', panel, 'String','<html>+</html>',...
-                'callback', {@butFcn, 5});
-            
-            % how to move buttons when thingy gets resized
-            function resizeFcn(o,e)
-                % get height of panel in pixels
-                set(panel,'Units','pixels');
-                sz = get(panel,'Position');
-                set(panel,'Units','normalized');
-                % figure out where the middle is
-                mid = sz(4)/2;
-                for i=1:nbut
-                    % position the buttons
-                    set(buts(i),'Position',[3,mid+(i-nbut/2-1)*20,20,20]);
-                end
-                % now position the axes object too
-                set(haxes,'Units','Pixels');
-                set(hyaxes,'Units','Pixels');
-                sz(1) = sz(1) + 60;
-                sz(3) = sz(3) - 60;
-                set(haxes,'Position',sz);
-                set(hyaxes,'Position',sz);
-            end
-            % set the resize function
-            set(panel, 'ResizeFcn', @resizeFcn);
-            % and call it to set default positions
-            resizeFcn
-            
-            sig = [];
-            sig.handle = panel;
-            sig.haxes = haxes;
-            sig.shiftY = @shiftY;
-            sig.setY = @setY;
-            sig.resetY = @resetY;
-            sig.getY = @getY;
-        end
     end
     
 end
 
+% some useful helper functions
+function sz = getPixelPos(hnd)
+    old_units = get(hnd,'Units');
+    set(hnd,'Units','Pixels');
+    sz = get(hnd,'Position');
+    set(hnd,'Units',old_units);
+end

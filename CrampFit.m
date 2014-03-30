@@ -159,6 +159,9 @@ classdef CrampFit < handle
                 % also need to resize x-axis labels
                 set(obj.xaxes,'Units','Pixels');
                 set(obj.xaxes,'Position',[sz(1)+obj.DEFS.LEFTWID,sz(4)+2,sz(3)-obj.DEFS.LEFTWID,1]);
+                % and tick length
+                s = 6/max(sz(3:4));
+                set(obj.xaxes,'TickLength',s*[1 1]);
             end
             % set the resize function
             set(obj.panels.Bottom, 'ResizeFcn', @resizeFcn);
@@ -571,6 +574,9 @@ classdef CrampFit < handle
                 sz(2) = 1;
                 set(sig.axes,'Position',sz);
                 set(sig.yaxes,'Position',sz);
+                % now do some ticklength calcs
+                s = 5/max(sz(3:4));
+                set(sig.yaxes,'TickLength',s*[1 1]);
             end
             % set the resize function
             set(sig.panel, 'ResizeFcn', @resizeFcn);

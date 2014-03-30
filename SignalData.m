@@ -11,6 +11,9 @@ classdef SignalData < handle
         si          % sampling interval
         tstart      % start time of file
         tend        % end time of file
+    end
+    
+    properties (SetAccess = private)
         cstart      % starting point of loaded cached data
         cend        % endpoint of loaded cached data
         dcache      % cached data that we're working with
@@ -109,7 +112,7 @@ classdef SignalData < handle
         end
         
         % returns reduced or full data in a specified time range
-        % with the full only being returned if reduced would be <1000 pts
+        % with the full one being returned once it would be few enough pts
         function d = getViewData(obj,trange)
             dt = trange(2)-trange(1);
             if (trange(1) < 0)
@@ -125,13 +128,20 @@ classdef SignalData < handle
                 trange(2) = obj.tend;
             end
             
+            % reduced sampling interval
             redsi = (obj.tend-obj.tstart)/obj.nred;
-            % number of points from reduced set we would be using
+            % number of points from reduced set we'd use
             nr = dt/redsi;
-            if nr > 1000
+            % number of points from full set we would be using
+            nfull = dt/obj.si;
+            % only use reduced one if it wouldn't be visible (nr>1500)
+            % and if there would be too many regular points (nfull>nred)
+            if nfull > obj.nred && nr > 1500
+                % use reduced
                 inds = floor(trange/redsi);
                 d = obj.datared(1+inds(1):inds(2),:);
             else
+                % use full
                 pts = floor(trange/obj.si);
                 d = obj.getFullData(pts(1),pts(2));
             end
@@ -180,7 +190,7 @@ classdef SignalData < handle
             d = obj.dcache(pts:pte,:);
         end
         
-        % returns data with time added on
+        % returns data with time added on, and all virtual sigs
         function d = getFullData(obj,ptstart,ptend)
             d = obj.getData(ptstart,ptend);
             npts = size(d,1);
@@ -188,40 +198,22 @@ classdef SignalData < handle
             d = [ts' d];
         end
         
-        % subsref lets us overwrite MATLAB's parens indexing, for niceness
-        function b = subsref(obj,index)
-            switch index(1).type
-                case '()'
-                    % Handle parenthesis indexing
-                    inds = index(1).subs{1};
-                    
-                    b = obj.getFullData(min(inds),max(inds));
-                    
-                    if (length(index(1).subs) > 1)
-                        if (index(1).subs{2} ~= ':')
-                            b = b(:,index(1).subs{2});
-                        end
-                    end
-                    
-                case '.'
-                    % Keep the default behavior for .
-                    if (length(index) == 1) % property access
-                        b = eval(['obj.' index(1).subs]);
-                    else
-                        b = eval(['obj.' index(1).subs '(index(2).subs{1})']);
-                    end
-                    
-                case '{}'
-                    % Load by times instead
-                    ts = [index(1).subs{1} index(1).subs{2}];
-                    
-                    % convert to indices
-                    inds = floor(ts/obj.si);
-                    
-                    % and load!
-                    d = obj.getData(inds(1),inds(2));
-                    b = d;
+        % this is how to access the data from the outside
+        % because overwriting subsref is dumb and slow, even if it is cute
+        function d = data(obj,pts,sigs)
+            if nargin < 3
+                sigs = ':';
             end
+            % get the data, including time
+            d = obj.getFullData(min(pts),max(pts));
+            % return only requested signals
+            d = d(:,sigs);
+        end
+        
+        % or this one
+        function d = getByTime(obj,trange)
+            pts = floor(trange/obj.si);
+            d = obj.getFullData(min(pts),max(pts));
         end
     end
 end

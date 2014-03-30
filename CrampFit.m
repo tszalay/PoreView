@@ -305,7 +305,6 @@ classdef CrampFit < handle
                     set(obj.fig,'WindowButtonMotionFcn',@(~,~) mouseMoveY(r, ind));
                 elseif (s == 'a' && strcmp(sel,'extend'))
                     % store the drag start point
-                    pt
                     set(obj.sigs(ind).yaxes,'UserData',pt);
                     % and set the callbacks
                     set(obj.fig,'WindowButtonUpFcn',@(~,~) mouseUpPan());

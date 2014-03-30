@@ -65,6 +65,7 @@ classdef CrampFit < handle
             obj.sigmenus = [];
             
             sa = uimenu(obj.hcmenu,'Label','Add Signal');
+            st = uimenu(obj.hcmenu,'Label','Set Signal');
             sr = uimenu(obj.hcmenu,'Label','Remove Signal');
             snew = uimenu(obj.hcmenu,'Label','Add Panel','Separator','on',...
                 'Callback',@(~,~) obj.addSignalPanel(obj.psigs(obj.cursig).sigs));
@@ -75,6 +76,12 @@ classdef CrampFit < handle
             function addsig(sig)
                 % append sig to the list of this signal panel's signals
                 obj.psigs(obj.cursig).sigs = [obj.psigs(obj.cursig).sigs sig];
+                % and redraw
+                obj.refresh();
+            end
+            function setsig(sig)
+                % set the only signal to the one we selected
+                obj.psigs(obj.cursig).sigs = sig;
                 % and redraw
                 obj.refresh();
             end
@@ -101,7 +108,13 @@ classdef CrampFit < handle
                     set(obj.sigmenus(end),'Callback',@(~,~) addsig(i+1));
                 end
                 
-                % and one for each of this guy's active signals
+                % and to set
+                for i=1:length(slist)
+                    obj.sigmenus(end+1) = uimenu(st,'Label',slist{i});
+                    set(obj.sigmenus(end),'Callback',@(~,~) setsig(i+1));
+                end
+                
+                % and to remove, one for each of this guy's active signals
                 ss = obj.psigs(obj.cursig).sigs;
                 for j=1:length(ss)
                     obj.sigmenus(end+1) = uimenu(sr,'Label',slist{ss(j)-1});
@@ -247,6 +260,10 @@ classdef CrampFit < handle
             
             % and reset view
             obj.setView();
+            
+            % and cursors
+            obj.setCursors(obj.getView());
+            obj.toggleCursors();
         end
 
         % Creates mouse callback interface, by defining a ton of fns
@@ -494,7 +511,10 @@ classdef CrampFit < handle
                 end
                 
                 % and then pass it on to the user-defined function
-                fun(e);
+                % (but only if a real key was pressed, not just shift etc)
+                if ~isempty(e.Character)
+                    fun(e);
+                end
             end
             set(obj.fig,'WindowKeyPressFcn',@keyboardFcn);
         end

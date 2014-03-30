@@ -6,7 +6,8 @@ function vout = example(  )
     ranges = [];
     
     function keyFn(e)
-        if (e.Character ~= 'r')
+        disp(e)
+        if ~strcmp(e.Character,'k')
             return
         end
         

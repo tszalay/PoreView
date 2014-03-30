@@ -33,6 +33,17 @@ classdef CrampFit < handle
             obj.fig = figure('Name','CrampFit!!!1111','MenuBar','none',...
                 'NumberTitle','off','DockControls','off');
             
+            % Build a new color map
+            CO = [  0.0 0.2 0.7;...
+                    0.0 0.5 0.0;...
+                    0.7 0.1 0.1;...
+                    0.0 0.6 0.6;...
+                    0.5 0.0 0.5;...
+                    0.6 0.6 0.3];
+
+            % Set the color order 
+            set (obj.fig, 'DefaultAxesColorOrder', CO); 
+            
             % how we load a new file
             function openFileFcn(~,~)
                 % get a filename from dialog box
@@ -795,7 +806,7 @@ classdef CrampFit < handle
                 % non-clickable
                 set(hps,'Tag','CFPLOT','HitTest','off');
                 % and move the plotted lines to the bottom of axes
-                uistack(hps,'bottom');
+                uistack(flipud(hps),'bottom');
 
                 if (nargin < 2)
                     % if we did setView(), reset Y

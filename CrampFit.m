@@ -6,7 +6,9 @@ classdef CrampFit < handle
         fig
         panels
         xaxes
-        sigs
+        cursors
+        ctext
+        psigs
         
         hcmenu
         sigmenus
@@ -25,6 +27,7 @@ classdef CrampFit < handle
             obj.DEFS.BUTWID         = 20;
             obj.DEFS.BUTLEFT        = 3;
             obj.DEFS.BUTBOT         = 3;
+            obj.DEFS.LABELWID       = 200;
             
             % start making GUI objects
             obj.fig = figure('Name','CrampFit!!!1111','MenuBar','none',...
@@ -40,8 +43,11 @@ classdef CrampFit < handle
             
             % make the menu bar
             f = uimenu('Label','File');
-            uimenu(f,'Label','Open','Callback',@openFileFcn,'Accelerator','O');
-            uimenu(f,'Label','Quit','Callback',@(~,~) delete(obj.fig),'Accelerator','Q');
+            uimenu(f,'Label','Open','Callback',@openFileFcn);
+            uimenu(f,'Label','Quit','Callback',@(~,~) delete(obj.fig));
+            c = uimenu('Label','Cursors');
+            uimenu(c,'Label','Bring','Callback',@(~,~) obj.bringCursors());
+            uimenu(c,'Label','Show/Hide','Callback',@(~,~) obj.toggleCursors());
             
             % and the context menus
             obj.hcmenu = uicontextmenu();
@@ -50,21 +56,21 @@ classdef CrampFit < handle
             sa = uimenu(obj.hcmenu,'Label','Add Signal');
             sr = uimenu(obj.hcmenu,'Label','Remove Signal');
             snew = uimenu(obj.hcmenu,'Label','Add Panel','Separator','on',...
-                'Callback',@(~,~) obj.addSignalPanel(obj.sigs(obj.cursig).sigs));
+                'Callback',@(~,~) obj.addSignalPanel(obj.psigs(obj.cursig).sigs));
             srem = uimenu(obj.hcmenu,'Label','Remove Panel',...
                 'Callback',@(~,~) obj.removeSignalPanel(obj.cursig));
             
             % populate signals submenu function
             function addsig(sig)
                 % append sig to the list of this signal panel's signals
-                obj.sigs(obj.cursig).sigs = [obj.sigs(obj.cursig).sigs sig];
+                obj.psigs(obj.cursig).sigs = [obj.psigs(obj.cursig).sigs sig];
                 % and redraw
                 obj.refresh();
             end
             function rmsig(sig)
                 % remove sig from the list of this signal panel's signals
-                ss = obj.sigs(obj.cursig).sigs;
-                obj.sigs(obj.cursig).sigs = ss((1:length(ss)) ~= find(ss == sig,1));
+                ss = obj.psigs(obj.cursig).sigs;
+                obj.psigs(obj.cursig).sigs = ss((1:length(ss)) ~= find(ss == sig,1));
                 % and redraw
                 obj.refresh();
             end
@@ -85,7 +91,7 @@ classdef CrampFit < handle
                 end
                 
                 % and one for each of this guy's active signals
-                ss = obj.sigs(obj.cursig).sigs;
+                ss = obj.psigs(obj.cursig).sigs;
                 for j=1:length(ss)
                     obj.sigmenus(end+1) = uimenu(sr,'Label',slist{ss(j)-1});
                     set(obj.sigmenus(end),'Callback',@(~,~) rmsig(ss(j)));
@@ -124,6 +130,12 @@ classdef CrampFit < handle
             
             obj.xaxes = hxaxes;
             
+            % create dummy cursor lines in the x-axis that the real
+            % cursor objects can copy
+            obj.cursors = [line() line()];
+            set(obj.cursors,'Parent',obj.xaxes,'XData',[0 0],...
+                'YData',[10 10],'Visible','off','Tag','CFCURS');
+            
             % again, screw scroll bars
             function shiftX(zoom,offset)
                 xlim = get(hxaxes,'XLim');
@@ -149,6 +161,16 @@ classdef CrampFit < handle
             buts(5) = uicontrol('Parent', obj.panels.Bottom, 'String','<html>+</html>',...
                 'callback', @(~,~) shiftX(0.5,0));
             
+            % and create a text-box in the bottom-right to hold the dt
+            % (time between cursors)
+            obj.ctext = uicontrol('Parent',obj.panels.Bottom,...
+                'Style','text','Units','Pixels','Position',[0 0 1 1],...
+                'Tag','Cursor dt: %0.3f %s   ','FontSize',10,...
+                'HorizontalAlignment','right','Visible','off');
+            uistack(obj.ctext,'bottom');
+            l = linkprop([obj.ctext obj.cursors(1)],'Visible');
+            set(obj.ctext,'UserData',l);
+            
             % how to move buttons when thingy gets resized
             function resizeFcn(~,~)
                 % get height of panel in pixels
@@ -165,11 +187,18 @@ classdef CrampFit < handle
                 % and tick length
                 s = 6/max(sz(3:4));
                 set(obj.xaxes,'TickLength',s*[1 1]);
+                
+                % now position the stupid label thing
+                set(obj.ctext,'Position',[sz(3)-obj.DEFS.LABELWID 1 obj.DEFS.LABELWID 20]);
             end
             % set the resize function
             set(obj.panels.Bottom, 'ResizeFcn', @resizeFcn);
             % and call it to set default positions
             resizeFcn
+            
+            
+            
+            % ========== FINISHING TOUCHES ===========
             
             % create drag/drop functions, etc
             obj.setMouseCallbacks();
@@ -179,11 +208,9 @@ classdef CrampFit < handle
             % load data if we were called with a filename
             % this also creates default signal panels
             obj.data = [];
+            obj.addSignalPanel([]);
             if (nargin > 0)
                 obj.loadFile(fname);
-            else
-                % create a dummy signal panel
-                obj.addSignalPanel([]);
             end
         end
         
@@ -199,7 +226,7 @@ classdef CrampFit < handle
             obj.data = d;
             
             % first, delete all panels
-            while ~isempty(obj.sigs)
+            while ~isempty(obj.psigs)
                 obj.removeSignalPanel();
             end
             % then, create right number of panels
@@ -229,12 +256,12 @@ classdef CrampFit < handle
                     pos = get(obj.fig,'CurrentPoint');
                 end
                 % first, let's check signals
-                nsig = length(obj.sigs);
+                nsig = length(obj.psigs);
                 for i=1:nsig
                     ind = i;
                     % did we click on a plot?
-                    if isIn(pos,getpixelposition(obj.sigs(i).axes,true))
-                        hnd = obj.sigs(i).axes;
+                    if isIn(pos,getpixelposition(obj.psigs(i).axes,true))
+                        hnd = obj.psigs(i).axes;
                         pt = get(hnd,'CurrentPoint');
                         pt = pt(1,1:2);
                         s = 'a';
@@ -242,11 +269,11 @@ classdef CrampFit < handle
                         return;
                     end
                     % are we over the y axis part?
-                    if (isIn(pos,getpixelposition(obj.sigs(i).panel,true)) &&...
+                    if (isIn(pos,getpixelposition(obj.psigs(i).panel,true)) &&...
                             pos(1) > 0.6*obj.DEFS.LEFTWID)
                         % return the handle to the main axes anyway, s'more
                         % useful that way
-                        hnd = obj.sigs(i).axes;
+                        hnd = obj.psigs(i).axes;
                         pt = get(hnd,'CurrentPoint');
                         pt = pt(1,1:2);
                         s = 'y';
@@ -284,10 +311,10 @@ classdef CrampFit < handle
                 if (s == 'y')
                     % we're scrolling inside a y-axis, scroll y-lims
                     pty = pt(2);
-                    ylim = obj.sigs(ind).getY();
+                    ylim = obj.psigs(ind).getY();
                     s = 0.5*e.VerticalScrollCount;
                     ylim = sort(pty + (1+s)*(ylim-pty));
-                    obj.sigs(ind).setY(ylim);
+                    obj.psigs(ind).setY(ylim);
                 elseif (s == 'a' || s == 'x')
                     % we're scrolling in a plot, scroll the time axis
                     ptx = pt(1);
@@ -309,12 +336,12 @@ classdef CrampFit < handle
             end
             function mouseMoveY(r,ind)
                 % get start and current point
-                pt0 = get(obj.sigs(ind).yaxes,'UserData');
-                pt1 = get(obj.sigs(ind).yaxes,'CurrentPoint');
+                pt0 = get(obj.psigs(ind).yaxes,'UserData');
+                pt1 = get(obj.psigs(ind).yaxes,'CurrentPoint');
                 % y-range, sorted
                 yr = sort([pt0(2) pt1(1,2)]);
                 % set x limits of y-line
-                xl = get(obj.sigs(ind).yaxes,'XLim');
+                xl = get(obj.psigs(ind).yaxes,'XLim');
                 % and update the line
                 set(r,'XData',[xl(1),xl(1)],'YData',yr,'LineWidth',5);
             end
@@ -339,22 +366,22 @@ classdef CrampFit < handle
                 % kill the line
                 delete(r);
                 % y-range as usual
-                pt0 = get(obj.sigs(ind).yaxes,'UserData');
-                pt1 = get(obj.sigs(ind).yaxes,'CurrentPoint');
+                pt0 = get(obj.psigs(ind).yaxes,'UserData');
+                pt1 = get(obj.psigs(ind).yaxes,'CurrentPoint');
                 yrange = sort([pt0(2) pt1(1,2)]);
                 if yrange(1)==yrange(2)
                     return
                 end
                 % zoom in
-                obj.sigs(ind).setY(yrange);
+                obj.psigs(ind).setY(yrange);
                 % and clear callbacks
                 set(obj.fig,'WindowButtonUpFcn','');
                 set(obj.fig,'WindowButtonMotionFcn','');
             end
             function mouseMovePan(ind)
                 % this is the doozy
-                pt0 = get(obj.sigs(ind).yaxes,'UserData');
-                pt1 = get(obj.sigs(ind).axes,'CurrentPoint');
+                pt0 = get(obj.psigs(ind).yaxes,'UserData');
+                pt1 = get(obj.psigs(ind).axes,'CurrentPoint');
                 pt1 = pt1(1,1:2);
                 % so we want to get pt0 and pt1 equal
                 % to get that guy under the mouse
@@ -363,14 +390,29 @@ classdef CrampFit < handle
                 xl = get(obj.xaxes,'XLim');
                 obj.setView(xl - dpt(1));
                 % now update y-axis
-                yl = obj.sigs(ind).getY();
-                obj.sigs(ind).setY(yl-dpt(2));
+                yl = obj.psigs(ind).getY();
+                obj.psigs(ind).setY(yl-dpt(2));
             end
             function mouseUpPan()
                 % clear callbacks
                 set(obj.fig,'WindowButtonUpFcn','');
                 set(obj.fig,'WindowButtonMotionFcn','');
             end
+            % and create their mouse down callbacks
+            function mouseMoveCursor(ind,cursind)
+                % get dragged point
+                pt = get(obj.psigs(ind).axes,'CurrentPoint');
+                % now update cursor positions
+                curs = obj.getCursors();
+                curs(cursind) = pt(1);
+                obj.setCursors(curs);
+            end
+            function mouseUpCursor()
+                % clear callbacks
+                set(obj.fig,'WindowButtonUpFcn','');
+                set(obj.fig,'WindowButtonMotionFcn','');
+            end
+            % the main mouse down dispatch function
             function mouseDown(~,~)
                 % figure out what we are over, if anything
                 [hnd,ind,pt,s] = getHandleAt();
@@ -393,18 +435,28 @@ classdef CrampFit < handle
                 elseif (s == 'y' && strcmp(sel,'normal'))
                     % make a line
                     r = line();
-                    set(r,'Parent',obj.sigs(ind).yaxes);
+                    set(r,'Parent',obj.psigs(ind).yaxes);
                     % store the drag start point
-                    set(obj.sigs(ind).yaxes,'UserData',pt);
+                    set(obj.psigs(ind).yaxes,'UserData',pt);
                     % and set appropriate callbacks, with line as data
                     set(obj.fig,'WindowButtonUpFcn',@(~,~) mouseUpY(r, ind));
                     set(obj.fig,'WindowButtonMotionFcn',@(~,~) mouseMoveY(r, ind));
                 elseif (s == 'a' && strcmp(sel,'extend'))
                     % store the drag start point
-                    set(obj.sigs(ind).yaxes,'UserData',pt);
+                    set(obj.psigs(ind).yaxes,'UserData',pt);
                     % and set the callbacks
                     set(obj.fig,'WindowButtonUpFcn',@(~,~) mouseUpPan());
                     set(obj.fig,'WindowButtonMotionFcn',@(~,~) mouseMovePan(ind));
+                elseif (s == 'a' && strcmp(sel,'open'))
+                    obj.bringCursors();
+                elseif (s == 'a' && strcmp(sel,'normal'))
+                    % click-drag a cursor?
+                    cursind = find(get(obj.fig,'CurrentObject') == obj.psigs(ind).cursors,1);
+                    if ~isempty(cursind)
+                         % set the callbacks
+                        set(obj.fig,'WindowButtonUpFcn',@(~,~) mouseUpCursor());
+                        set(obj.fig,'WindowButtonMotionFcn',@(~,~) mouseMoveCursor(ind,cursind));
+                    end
                 end
             end
             
@@ -419,12 +471,18 @@ classdef CrampFit < handle
             function keyboardFcn(~,e)
                 if e.Character == 'a'
                     % autoscale axes
-                    for i=1:length(obj.sigs)
-                        obj.sigs(i).resetY();
+                    for i=1:length(obj.psigs)
+                        obj.psigs(i).resetY();
                     end
                 end
+                if e.Character == 'c'
+                    obj.toggleCursors();
+                end
+                if strcmp(e.Key,'escape')
+                    delete(obj.fig);
+                end
                 
-                % and then pass it on
+                % and then pass it on to the user-defined function
                 fun(e);
             end
             set(obj.fig,'WindowKeyPressFcn',@keyboardFcn);
@@ -433,14 +491,14 @@ classdef CrampFit < handle
         % adding and removing signal panels...
         function addSignalPanel(obj, sigs)
             % make a new one at the end
-            i = length(obj.sigs)+1;
+            i = length(obj.psigs)+1;
             if (i==1)
-                obj.sigs = obj.makeSignalPanel();
+                obj.psigs = obj.makeSignalPanel();
             else
-                obj.sigs(i) = obj.makeSignalPanel();
+                obj.psigs(i) = obj.makeSignalPanel();
             end
             % save which signals we want to draw
-            obj.sigs(i).sigs = sigs;
+            obj.psigs(i).sigs = sigs;
             % and redo their sizes
             obj.sizeSignalPanels()
             % and refresh the view, without changing x-limits
@@ -452,7 +510,7 @@ classdef CrampFit < handle
                 obj.refresh();
             end
             % autoset the y-limits
-            obj.sigs(i).resetY();
+            obj.psigs(i).resetY();
         end
         function removeSignalPanel(obj, sig)
             % just remove the topmost one if none specified
@@ -460,21 +518,21 @@ classdef CrampFit < handle
                 sig = 1;
             end
             % already deleted all of them
-            if isempty(obj.sigs) || (nargin == 2 && length(obj.sigs)==1)
+            if isempty(obj.psigs) || (nargin == 2 && length(obj.psigs)==1)
                 return
             end
             % otherwise, delete the panel object
-            delete(obj.sigs(sig).panel);
+            delete(obj.psigs(sig).panel);
             % and remove it from the array
-            obj.sigs = obj.sigs((1:length(obj.sigs))~=sig);
+            obj.psigs = obj.psigs((1:length(obj.psigs))~=sig);
             % and resize!
             obj.sizeSignalPanels();
         end
         function sizeSignalPanels(obj)
             % this guy just sets the sizes of the panels
-            np = length(obj.sigs);
+            np = length(obj.psigs);
             for i=1:np
-                set(obj.sigs(i).panel,'Position',[0 (np-i)/np 1 1/np]);
+                set(obj.psigs(i).panel,'Position',[0 (np-i)/np 1 1/np]);
             end
         end
         
@@ -498,17 +556,19 @@ classdef CrampFit < handle
                 'TickDir','out','Box','off','XLimMode','manual');
             % and then the main axes object for showing data
             sig.axes = axes('Parent',sig.panel,'Position',[0 0 1 1],...
-                'XTickLabel','','YTickLabel','',...
-                'XColor', 0.8*[1 1 1],'YColor', 0.8*[1 1 1],'GridLineStyle','-','Box','on');
+                'XTickLabel','','YTickLabel','','GridLineStyle','-',...
+                'XColor', 0.9*[1 1 1],'YColor', 0.9*[1 1 1]);
             % let's bind the context menu here as well
             set(sig.axes,'uicontextmenu',obj.hcmenu);
+            % equivalent to 'hold on'
+            set(sig.axes,'NextPlot','add','XLimMode','manual');
             % and gridify it
-            grid;
-            evalc('hold(sig.axes)');
+            set(sig.axes,'XGrid','on','YGrid','on');
 
             % magic function to make Y-axes consistent, saving me some
             % bookkeeping headaches and stuff
-            linkprop([sig.yaxes sig.axes],{'YLim','Position'});
+            l = linkprop([sig.yaxes sig.axes],{'YLim'});
+            set(sig.axes,'UserData',l);
             
             % screw scroll bars, you never need to scroll the current trace
             % so we'll just do buttons instead
@@ -521,10 +581,21 @@ classdef CrampFit < handle
                 set(sig.axes,'YLim',ylim);
             end
             function resetY()
+                % let Matlab scale our axes, but don't scale to user-added
+                % objects or to data cursors
+                % so first we make them all invisible
+                cvis = get(obj.cursors(1),'Visible');
+                hs = findobj(sig.axes,'-not','Tag','CFPLOT');
+                set(hs,'Visible','off');
                 set(sig.axes,'YLimMode','auto');
                 ylim = getY();
+                % and then make them visible again
+                set(hs,'Visible','on');
+                % and restore data cursor visibility to previous value
+                set(obj.cursors,'Visible',cvis);
                 setY(ylim);
-                set(sig.axes,'YLimMode','manual');
+                % zoom out a tiny bit to make it visually pleasing
+                shiftY(1.25,0);
             end
             function shiftY(zoom,offset)
                 ylim = getY();
@@ -541,6 +612,19 @@ classdef CrampFit < handle
             sig.resetY = @resetY;
             sig.getY = @getY;
             
+            
+            % make the cursors, and start them off invisible
+            sig.cursors = [line() line()];
+            set(sig.cursors,'Parent',sig.axes,'XData',[5 5],'YData',1e3*[-1 1],...
+                'Color',[0 0.5 0.5],'Visible','off','Tag','CFCURS');
+            
+            % link their properties to the dummy x-axis cursor
+            % this way we never have to think about it
+            for j=1:2
+                l = linkprop([obj.cursors(j) sig.cursors(j)],{'XData','Visible'});
+                set(sig.cursors(j),'UserData',l);
+                set(sig.cursors(j),'Visible','off');
+            end
             
             % now make the buttons
             nbut = 5;
@@ -579,6 +663,7 @@ classdef CrampFit < handle
                 % set bottom to 1
                 sz(2) = 1;
                 set(sig.axes,'Position',sz);
+                sz(1) = sz(1) + 1;
                 set(sig.yaxes,'Position',sz);
                 % now do some ticklength calcs
                 s = 5/max(sz(3:4));
@@ -589,6 +674,56 @@ classdef CrampFit < handle
             % and call it to set default positions
             resizeFcn
         end
+        
+        % bring cursors to view window
+        function bringCursors(obj)
+            % bring cursors
+            xlim = obj.getView();
+            xm = mean(xlim);
+            xlim = xm+0.5*(xlim-xm);
+            obj.setCursors(xlim);
+        end
+        
+        % toggle cursor visibility
+        function toggleCursors(obj)
+            % toggle cursor visibility
+            cvis = get(obj.cursors(1),'Visible');
+            if strcmp(cvis,'on')
+                set(obj.cursors,'Visible','off');
+            else
+                set(obj.cursors,'Visible','on');
+            end
+        end
+        
+        % positions of the cursors
+        function curs = getCursors(obj)
+            curs = zeros(1,2);
+            for i=1:2
+                curs(i) = mean(get(obj.cursors(i),'XData'));
+            end
+            % return in proper time-order i guess
+            curs = sort(curs);
+        end 
+        
+        % set cursor positions
+        function setCursors(obj, curs)
+            curs = sort(curs);
+            for i=1:2
+                set(obj.cursors(i),'XData',[curs(i) curs(i)],'Visible','on');
+            end
+            % now update the dt label
+            dt = curs(2) - curs(1);
+            s = 's';
+            if (dt < 1e-3)
+                dt = dt * 1e6;
+                s = 'us';
+            elseif (dt < 1)
+                dt = dt * 1e3;
+                s = 'ms';
+            end
+            % the format string is hidden in ctext's tag
+            set(obj.ctext,'String',sprintf(get(obj.ctext,'Tag'),dt,s));
+        end 
         
         % just refresh the view
         function refresh(obj)
@@ -637,28 +772,37 @@ classdef CrampFit < handle
             
             % now we can set all the xlims properly
             set(obj.xaxes,'XLim',range);
-            set([obj.sigs.axes],'XLim',range);
+            set([obj.psigs.axes],'XLim',range);
             
             % get the data
             d = obj.data.getViewData(range);
             
             % and replot everything
-            for i=1:length(obj.sigs)
+            for i=1:length(obj.psigs)
                 % get the y-limit
-                ylim = obj.sigs(i).getY();
-                cla(obj.sigs(i).axes);
-                % plot the selected signals
-                if isempty(obj.sigs(i).sigs)
+                ylim = obj.psigs(i).getY();
+                % now, don't clear everything (using cla)
+                % instead, just delete the lines we drew previous
+                delete(findobj(obj.psigs(i).axes,'Tag','CFPLOT'));
+                
+                % plot the selected signals, if any
+                if isempty(obj.psigs(i).sigs)
                     continue
                 end
-                plot(obj.sigs(i).axes,d(:,1),d(:,obj.sigs(i).sigs));
+                % get the plot handles
+                hps = plot(obj.psigs(i).axes,d(:,1),d(:,obj.psigs(i).sigs));
+                % and tag them to clear them next time, also make them
+                % non-clickable
+                set(hps,'Tag','CFPLOT','HitTest','off');
+                % and move the plotted lines to the bottom of axes
+                uistack(hps,'bottom');
 
                 if (nargin < 2)
                     % if we did setView(), reset Y
-                    obj.sigs(i).resetY();
+                    obj.psigs(i).resetY();
                 else
                     % otherwise, keep it where it was
-                    obj.sigs(i).setY(ylim);
+                    obj.psigs(i).setY(ylim);
                 end
             end
         end

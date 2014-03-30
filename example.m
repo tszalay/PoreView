@@ -1,16 +1,16 @@
-function example(  )
+function vout = example(  )
 
     % load a file
-    c = CrampFit('C:\AxoData\14301033.abf');
+    c = CrampFit('C:\Axon\Nanopores\14301033.abf');
     
     ranges = [];
     
     function keyFn(e)
-        if (e.Character ~= 'c')
+        if (e.Character ~= 'r')
             return
         end
         
-        xlim = c.getView();
+        xlim = c.getCursors();
         % get average of endpoints
         y0s = mean(c.data.getByTime(xlim(1),xlim(1)+0.001));
         y1s = mean(c.data.getByTime(xlim(2),xlim(2)-0.001));
@@ -35,7 +35,13 @@ function example(  )
     c.data.addVirtualSignal(@(d) filt_med(d,13),'Median',[1,6,7]);
     
     % this sets which signals to draw in each panel
-    c.sigs(1).sigs = 4;
-    c.sigs(2).sigs = 5;
+    c.psigs(1).sigs = 4;
+    c.psigs(2).sigs = 5;
+    
+    % and draw a rectangle
+    r = rectangle('Position',[100, -4, 1, 8],'Parent',c.psigs(1).axes,'EdgeColor','r');
+    l = line([50 50],[-4 4],'Parent',c.psigs(1).axes,'Color','g');
+    
+    vout = c;
 end
 

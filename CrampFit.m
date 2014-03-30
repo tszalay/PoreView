@@ -456,6 +456,9 @@ classdef CrampFit < handle
                 ylim = get(h,'YLim');
                 cla(h);
                 plot(obj.sigs(i).axes,d(:,1),d(:,i+1));
+                if (size(d,2) > 3)
+                    plot(obj.sigs(i).axes,d(:,1),d(:,i+3),'r');
+                end
                 if (wasempty)
                     obj.sigs(i).resetY();
                 else

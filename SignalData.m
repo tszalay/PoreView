@@ -2,27 +2,36 @@ classdef SignalData < handle
     %SIGNALDATA Class wrapper for streaming signals (esp. abfs)
     %   Allows caching and whatnot
     
-    properties (SetAccess = public)
+    % make it so these don't get screwed up
+    properties (SetAccess=immutable)
         filename    % filename we are working with
         ndata       % number of points
         nsigs       % number of signals (not including time)
         datared     % subsampled data, in min-max form (3D array)
         nred        % number of points to store in the reduced array
         si          % sampling interval
-        tstart      % start time of file
+        tstart      % start time of file, set to 0
         tend        % end time of file
+        header      % original abf info header
     end
     
-    properties (SetAccess = private)
+    % can't change these from the outside
+    properties (SetAccess=private, Hidden=true)
         cstart      % starting point of loaded cached data
         cend        % endpoint of loaded cached data
         dcache      % cached data that we're working with
+        
+        nvsigs      % how many virtual signals?
+        vnames      % cell array names of virtual signals
+        vfuns       % cell array functions for virtual signals
+        vsrcs       % cell arr, which columns get processed by each one
     end
     
     methods
         function obj = SignalData(fname)
             % start working!
             obj.filename = fname;
+            
             % try to load file, see if we got it right
             try
                 % first, load some info on the file
@@ -31,6 +40,14 @@ classdef SignalData < handle
                 fprintf(2,'Failed to load file!\n')
                 return
             end
+            
+            % clear virtual signal parts
+            obj.nvsigs = 0;
+            obj.vnames = {};
+            obj.vfuns = {};
+            obj.vsrcs = {};
+            
+            obj.header = h;
             obj.si = si*1e-6;
             obj.ndata = h.dataPtsPerChan;
             obj.tstart = 0; % dunno how to get actual start from abf
@@ -98,6 +115,7 @@ classdef SignalData < handle
                     fprintf('\b\b\b%2d%%',floor(100*ired/obj.nred));
                 end
                 
+                % trim off extra points
                 obj.datared = obj.datared(1:obj.nred,:);
                 
                 % and save the data
@@ -110,7 +128,9 @@ classdef SignalData < handle
                 end
             end
         end
-        
+    end
+    
+    methods
         % returns reduced or full data in a specified time range
         % with the full one being returned once it would be few enough pts
         function d = getViewData(obj,trange)
@@ -141,9 +161,10 @@ classdef SignalData < handle
                 inds = floor(trange/redsi);
                 d = obj.datared(1+inds(1):inds(2),:);
             else
-                % use full
+                % use full, if we have virtual signals the array will
+                % be bigger and stuff and junk
                 pts = floor(trange/obj.si);
-                d = obj.getFullData(pts(1),pts(2));
+                d = obj.getData(pts(1),pts(2));
             end
         end
         
@@ -179,8 +200,28 @@ classdef SignalData < handle
                 
                 % load file, add in a 'cheat point' at the end just to make
                 % sure we get everything
-                [T, obj.dcache] = evalc('abfload(obj.filename,''start'',obj.cstart*obj.si,''stop'',(obj.cend+1)*obj.si);');
+                [T, d] = evalc('abfload(obj.filename,''start'',obj.cstart*obj.si,''stop'',(obj.cend+1)*obj.si);');
                 %fprintf('Loaded %d points (%d-%d) into the cache\n   ',size(obj.dcache,1),floor(obj.cstart),floor(obj.cend));
+                
+                % make empty cache
+                obj.dcache = zeros(size(d,1),1+obj.nsigs*(1+obj.nvsigs));
+                
+                % add time data on to cache, as first col
+                npts = size(obj.dcache,1);
+                ts = obj.si*((1:npts)-1+obj.cstart);
+                % set, along with loaded data
+                obj.dcache(:,1:obj.nsigs+1) = [ts' d];
+                
+                % now call virtual signal functions
+                for i=1:obj.nvsigs
+                    % which columns to write to?
+                    dst = 1+obj.nsigs*i+(1:obj.nsigs);
+                    % and which to read from
+                    src = obj.vsrcs{i};
+                    fun = obj.vfuns{i};
+                    % and execute it
+                    obj.dcache(:,dst) = fun(obj.dcache(:,src));
+                end
             end
             % now we definitely have the points
             % +1 for Matlab's 1-indexed arrays ugh
@@ -189,31 +230,43 @@ classdef SignalData < handle
             
             d = obj.dcache(pts:pte,:);
         end
-        
-        % returns data with time added on, and all virtual sigs
-        function d = getFullData(obj,ptstart,ptend)
-            d = obj.getData(ptstart,ptend);
-            npts = size(d,1);
-            ts = obj.si*((1:npts)-1+ptstart);
-            d = [ts' d];
-        end
-        
+    
         % this is how to access the data from the outside
         % because overwriting subsref is dumb and slow, even if it is cute
+        % calling this as data(1:10) is same as data([1,10])
         function d = data(obj,pts,sigs)
             if nargin < 3
                 sigs = ':';
             end
             % get the data, including time
-            d = obj.getFullData(min(pts),max(pts));
+            d = obj.getData(min(pts),max(pts));
             % return only requested signals
             d = d(:,sigs);
         end
         
-        % or this one
-        function d = getByTime(obj,trange)
-            pts = floor(trange/obj.si);
-            d = obj.getFullData(min(pts),max(pts));
+        % or this one, can call as getByTime([t0 t1]) or getByTime(t0,t1)
+        function d = getByTime(obj,t0,t1)
+            if nargin == 3
+                t0 = [t0 t1];
+            end
+            pts = floor(t0/obj.si);
+            d = obj.getData(min(pts),max(pts));
+        end
+        
+        % now let's have some fun! virtual signals start here
+        % give it a function, the name of the function, and which columns
+        % to pass to the function (including virtual ones!)
+        % if name already exists, it gets overwritten
+        function addVirtualSignal(obj, fun, src)
+            % if we didn't specify source, do time + orig. signals
+            if (nargin < 3)
+                src = 1:obj.nsigs+1;
+            end
+            % and save the data
+            obj.nvsigs = obj.nvsigs + 1;
+            i = obj.nvsigs;
+            obj.vfuns{i} = fun;
+            obj.vsrcs{i} = src;
         end
     end
 end

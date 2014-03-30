@@ -71,6 +71,9 @@ classdef CrampFit < handle
             function popSigMenuFcn(~,~)
                 % delete the old ones
                 delete(obj.sigmenus);
+                if isempty(obj.data)
+                    return
+                end
                 % get signal list, if we have one
                 slist = obj.data.getSignalList();
                 
@@ -178,6 +181,9 @@ classdef CrampFit < handle
             obj.data = [];
             if (nargin > 0)
                 obj.loadFile(fname);
+            else
+                % create a dummy signal panel
+                obj.addSignalPanel([]);
             end
         end
         
@@ -453,8 +459,8 @@ classdef CrampFit < handle
             if (nargin < 2)
                 sig = 1;
             end
-            % no more to remove!
-            if (isempty(obj.sigs))
+            % already deleted all of them
+            if isempty(obj.sigs) || (nargin == 2 && length(obj.sigs)==1)
                 return
             end
             % otherwise, delete the panel object

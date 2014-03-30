@@ -23,28 +23,46 @@ classdef CrampFit < handle
             obj.DEFS.BUTBOT         = 3;
             
             % for now, let's just load data as we open program
-            obj.data = SignalData(fname);
+            obj.data = [];
+            if (nargin > 0)
+                obj.data = SignalData(fname);
+            end
+            
             % start making GUI objects
             obj.fig = figure('Name','CrampFit!!!1111','MenuBar','none',...
-                'NumberTitle','off');
+                'NumberTitle','off','DockControls','off');
+            
+            % how we load a new file
+            function openFileFcn(~,~)
+                % get a filename from dialog box
+                [FileName,PathName] = uigetfile('*.abf');
+                % attempt to load
+                d = SignalData([PathName FileName]);
+                if (d.ndata > 0)
+                    % data loaded successfully
+                    obj.data = d;
+                    obj.setView([]);
+                end
+            end
+            
+            % make the menu bar
+            f = uimenu('Label','File');
+            uimenu(f,'Label','Open','Callback',@openFileFcn);
+            uimenu(f,'Label','Quit','Callback','exit',...
+                'Separator','on','Accelerator','Q');
             
             % the main layout components
             obj.panels = [];
             obj.panels.Middle = uipanel('Parent',obj.fig,'Position',[0 0.5 1 0.5],'Units','Pixels');
             obj.panels.Bottom = uipanel('Parent',obj.fig,'Position',[0 0.5 1 0.5],'Units','Pixels');
             
-            % give it an invisible padded border, so the axes that live 
-            % in it are automatically lined up with the ones above it
-            %set(obj.panels.Bottom,'BorderType','line','BorderWidth',1);
-            %set(obj.panels.Bottom,'HighlightColor',get(obj.panels.Bottom,'BackgroundColor'));
             set(obj.panels.Bottom,'BorderType','none');
             set(obj.panels.Middle,'BorderType','none');
             
             % handles the resizing of the main panels
-            function mainResizeFcn(o,e)
+            function mainResizeFcn(~,~)
                 sz = getPixelPos(obj.fig);
 
-                % 
                 set(obj.panels.Bottom,'Position',[1,0,sz(3)+2,obj.DEFS.BOTHEIGHT]);
                 % set this guy outside the edges of the figure by one pixel
                 % horizontally, to hide the border on the sides
@@ -423,6 +441,11 @@ classdef CrampFit < handle
         
         function setView(obj,range)
             %SETVIEW sets the x-limits (with bounding, of course)
+            
+            % if we don't have anything loaded, get outta here
+            if isempty(obj.data)
+                return
+            end
             
             wasempty = 0;
             if (isempty(range))

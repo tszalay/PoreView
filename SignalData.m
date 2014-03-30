@@ -38,6 +38,7 @@ classdef SignalData < handle
                 [d,si,h]=abfload(obj.filename,'info');
             catch
                 fprintf(2,'Failed to load file!\n')
+                obj.ndata = -1;
                 return
             end
             
@@ -100,13 +101,13 @@ classdef SignalData < handle
                     inds = floor(linspace(1,0.999+(inext-ired)*0.5,size(d,1)))';
                     
                     % get the min and max values for each signal
-                    for i=1:obj.nsigs
+                    for i=2:obj.nsigs+1
                         mins = accumarray(inds,d(:,i),[nstepred/2,1],@min);
                         maxs = accumarray(inds,d(:,i),[nstepred/2,1],@max);
                         np = 2*size(mins,1);
                         % make alternating min-max data
                         % and write it to output array
-                        obj.datared(ired+1:ired+np,i+1) = reshape([mins maxs]',[np 1]);
+                        obj.datared(ired+1:ired+np,i) = reshape([mins maxs]',[np 1]);
                     end
                                         
                     ired = ired + nstepred;

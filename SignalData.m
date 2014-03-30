@@ -7,7 +7,6 @@ classdef SignalData < handle
         filename    % filename we are working with
         ndata       % number of points
         nsigs       % number of signals (not including time)
-        datared     % subsampled data, in min-max form (3D array)
         nred        % number of points to store in the reduced array
         si          % sampling interval
         tstart      % start time of file, set to 0
@@ -17,6 +16,9 @@ classdef SignalData < handle
     
     % can't change these from the outside
     properties (SetAccess=private, Hidden=true)
+        datared     % subsampled data, in min-max form
+                    % gets updated as virtual stuff changes
+        
         cstart      % starting point of loaded cached data
         cend        % endpoint of loaded cached data
         dcache      % cached data that we're working with
@@ -52,7 +54,7 @@ classdef SignalData < handle
             obj.si = si*1e-6;
             obj.ndata = h.dataPtsPerChan;
             obj.tstart = 0; % dunno how to get actual start from abf
-            obj.tend = obj.si*obj.ndata;
+            obj.tend = obj.si*(obj.ndata-1);
             obj.nsigs = h.nADCNumChannels;
             
             % set cache to default values
@@ -160,7 +162,8 @@ classdef SignalData < handle
             if nfull > obj.nred && nr > 1500
                 % use reduced
                 inds = floor(trange/redsi);
-                d = obj.datared(1+inds(1):inds(2),:);
+                % already contains virtual data
+                d = obj.datared(inds(1)+1:inds(2),:);
             else
                 % use full, if we have virtual signals the array will
                 % be bigger and stuff and junk
@@ -258,16 +261,75 @@ classdef SignalData < handle
         % give it a function, the name of the function, and which columns
         % to pass to the function (including virtual ones!)
         % if name already exists, it gets overwritten
-        function addVirtualSignal(obj, fun, src)
+        function addVirtualSignal(obj, fun, name, src)
             % if we didn't specify source, do time + orig. signals
-            if (nargin < 3)
+            if (nargin < 4)
                 src = 1:obj.nsigs+1;
             end
-            % and save the data
-            obj.nvsigs = obj.nvsigs + 1;
-            i = obj.nvsigs;
+            
+            % check if this one exists already, if we were given a name
+            if nargin > 2 && any(ismember(obj.vnames, name))
+                i = find(ismember(obj.vnames, name),1);
+            else
+                % or add a new one
+                obj.nvsigs = obj.nvsigs + 1;
+                i = obj.nvsigs;
+            end
+            
+            if (nargin < 3)
+                name = sprintf('Virtual %d',i);
+            end
+            
+            obj.vnames{i} = name;
             obj.vfuns{i} = fun;
             obj.vsrcs{i} = src;
+            
+            % and now that we've added it, make sure reduced and cached data's good
+            obj.updateVirtualData();
+        end
+        
+        % update reduced data with virtual signals
+        function updateVirtualData(obj)
+            % set original reduced data aside
+            d = obj.datared(:,1:obj.nsigs+1);
+            % make the new one
+            obj.datared = zeros(obj.nred, 1+obj.nsigs*(obj.nvsigs+1));
+            % set the originals
+            obj.datared(:,1:obj.nsigs+1) = d;
+            
+            % do the same with the cache
+            if ~isempty(obj.dcache)
+                d = obj.dcache(:,1:obj.nsigs+1);
+                obj.dcache = zeros(size(obj.dcache,1), 1+obj.nsigs*(obj.nvsigs+1));
+                obj.dcache(:,1:obj.nsigs+1) = d;
+            end
+
+            % and apply virtual signal functions to cached and reduced data
+            for i=1:obj.nvsigs
+                % which columns to write to?
+                dst = 1+obj.nsigs*i+(1:obj.nsigs);
+                % and which to read from
+                src = obj.vsrcs{i};
+                fun = obj.vfuns{i};
+                % and execute it
+                if ~isempty(obj.dcache)
+                    obj.dcache(:,dst) = fun(obj.dcache(:,src));
+                end
+                obj.datared(:,dst) = fun(obj.datared(:,src));
+            end
+        end
+                
+        % return a list of accessible signals, in order they appear
+        function siglist = getSignalList(obj)
+            siglist = {};
+            for i=1:obj.nsigs
+                siglist{i} = obj.header.recChNames{i};
+            end
+            for i=1:obj.nvsigs
+                for j=1:obj.nsigs
+                    siglist{i*obj.nsigs+j} = sprintf('%s (%s)',obj.vnames{i},siglist{j});
+                end
+            end
         end
     end
 end

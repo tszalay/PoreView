@@ -7,6 +7,10 @@ classdef CrampFit < handle
         panels
         xaxes
         sigs
+        
+        hcmenu
+        sigmenus
+        cursig
     end
     properties
         DEFS
@@ -22,12 +26,6 @@ classdef CrampFit < handle
             obj.DEFS.BUTLEFT        = 3;
             obj.DEFS.BUTBOT         = 3;
             
-            % for now, let's just load data as we open program
-            obj.data = [];
-            if (nargin > 0)
-                obj.data = SignalData(fname);
-            end
-            
             % start making GUI objects
             obj.fig = figure('Name','CrampFit!!!1111','MenuBar','none',...
                 'NumberTitle','off','DockControls','off');
@@ -36,20 +34,64 @@ classdef CrampFit < handle
             function openFileFcn(~,~)
                 % get a filename from dialog box
                 [FileName,PathName] = uigetfile('*.abf');
-                % attempt to load
-                d = SignalData([PathName FileName]);
-                if (d.ndata > 0)
-                    % data loaded successfully
-                    obj.data = d;
-                    obj.setView([]);
-                end
+                % and load (or attempt to)
+                obj.loadFile([PathName FileName]);
             end
             
             % make the menu bar
             f = uimenu('Label','File');
-            uimenu(f,'Label','Open','Callback',@openFileFcn);
-            uimenu(f,'Label','Quit','Callback','exit',...
-                'Separator','on','Accelerator','Q');
+            uimenu(f,'Label','Open','Callback',@openFileFcn,'Accelerator','O');
+            uimenu(f,'Label','Quit','Callback',@(~,~) delete(obj.fig),'Accelerator','Q');
+            
+            % and the context menus
+            obj.hcmenu = uicontextmenu();
+            obj.sigmenus = [];
+            
+            sa = uimenu(obj.hcmenu,'Label','Add Signal');
+            sr = uimenu(obj.hcmenu,'Label','Remove Signal');
+            snew = uimenu(obj.hcmenu,'Label','Add Panel','Separator','on',...
+                'Callback',@(~,~) obj.addSignalPanel(obj.sigs(obj.cursig).sigs));
+            srem = uimenu(obj.hcmenu,'Label','Remove Panel',...
+                'Callback',@(~,~) obj.removeSignalPanel(obj.cursig));
+            
+            % populate signals submenu function
+            function addsig(sig)
+                % append sig to the list of this signal panel's signals
+                obj.sigs(obj.cursig).sigs = [obj.sigs(obj.cursig).sigs sig];
+                % and redraw
+                obj.refresh();
+            end
+            function rmsig(sig)
+                % remove sig from the list of this signal panel's signals
+                ss = obj.sigs(obj.cursig).sigs;
+                obj.sigs(obj.cursig).sigs = ss((1:length(ss)) ~= find(ss == sig,1));
+                % and redraw
+                obj.refresh();
+            end
+            function popSigMenuFcn(~,~)
+                % delete the old ones
+                delete(obj.sigmenus);
+                % get signal list, if we have one
+                slist = obj.data.getSignalList();
+                
+                obj.sigmenus = [];
+                % create the menus
+                for i=1:length(slist)
+                    obj.sigmenus(end+1) = uimenu(sa,'Label',slist{i});
+                    set(obj.sigmenus(end),'Callback',@(~,~) addsig(i+1));
+                end
+                
+                % and one for each of this guy's active signals
+                ss = obj.sigs(obj.cursig).sigs;
+                for j=1:length(ss)
+                    obj.sigmenus(end+1) = uimenu(sr,'Label',slist{ss(j)-1});
+                    set(obj.sigmenus(end),'Callback',@(~,~) rmsig(ss(j)));
+                end
+            end
+            
+            set(obj.hcmenu,'Callback',@popSigMenuFcn);
+            
+            obj.cursig = 0;
             
             % the main layout components
             obj.panels = [];
@@ -98,7 +140,7 @@ classdef CrampFit < handle
             buts(2) = uicontrol('Parent', obj.panels.Bottom, 'String','<html>&larr;</html>',...
                 'callback', @(~,~) shiftX(1,-0.25));
             buts(3) = uicontrol('Parent', obj.panels.Bottom, 'String','<html>R</html>',...
-                'callback', @(~,~) obj.setView([]));
+                'callback', @(~,~) obj.setView());
             buts(4) = uicontrol('Parent', obj.panels.Bottom, 'String','<html>&rarr;</html>',...
                 'callback', @(~,~) shiftX(1,0.25));
             buts(5) = uicontrol('Parent', obj.panels.Bottom, 'String','<html>+</html>',...
@@ -123,23 +165,46 @@ classdef CrampFit < handle
             % and call it to set default positions
             resizeFcn
             
-            % ========== SIGNALS CODE ===========
-            obj.sigs = obj.makeSignalPanel(obj.panels.Middle);
-            obj.sigs(2) = obj.makeSignalPanel(obj.panels.Middle);
-            
-            set(obj.sigs(1).panel,'Position',[0,0.5,1,0.5]);
-            set(obj.sigs(2).panel,'Position',[0,0,1,0.5]);
-            
+            % create drag/drop functions, etc
             obj.setMouseCallbacks();
+            % and a dummy keyboard callback
+            obj.setKeyboardCallback(@(e) []);
             
-            % now that it's all made, set the view to a default value
-            obj.setView([]);
+            % load data if we were called with a filename
+            % this also creates default signal panels
+            obj.data = [];
+            if (nargin > 0)
+                obj.loadFile(fname);
+            end
         end
         
-        function setMouseCallbacks(obj)
-            % Creates mouse callback interface, by defining a ton of fns
+        % loads the specified file, and initializes the signal panels
+        function loadFile(obj, fname)
+            % attempt to load data
+            d = SignalData(fname);
             
-            % point-rectangle hit test
+            if d.ndata < 0
+                return
+            end
+            % set internal data
+            obj.data = d;
+            
+            % first, delete all panels
+            while ~isempty(obj.sigs)
+                obj.removeSignalPanel();
+            end
+            % then, create right number of panels
+            for i=1:obj.data.nsigs
+                obj.addSignalPanel(i+1);
+            end
+            
+            % and reset view
+            obj.setView();
+        end
+
+        % Creates mouse callback interface, by defining a ton of fns
+        function setMouseCallbacks(obj)
+            % point-rectangle hit test utility function
             function b = isIn(pos,p)
                 b = false;
                 if (pos(1) > p(1) && pos(1) < (p(1)+p(3)) &&...
@@ -164,6 +229,7 @@ classdef CrampFit < handle
                         pt = get(hnd,'CurrentPoint');
                         pt = pt(1,1:2);
                         s = 'a';
+                        obj.cursig = ind;
                         return;
                     end
                     % are we over the y axis part?
@@ -175,6 +241,7 @@ classdef CrampFit < handle
                         pt = get(hnd,'CurrentPoint');
                         pt = pt(1,1:2);
                         s = 'y';
+                        obj.cursig = ind;
                         return;
                     end
                 end
@@ -186,12 +253,14 @@ classdef CrampFit < handle
                     pt = get(hnd,'CurrentPoint');
                     pt = pt(1,1:2);
                     s = 'x';
+                    obj.cursig = 0;
                     return;
                 end
                 hnd = -1;
                 ind = -1;
                 pt = [];
                 s = '';
+                obj.cursig = 0;
             end
             % handles scrolling zoom in-out
             function scrollCallback(~,e)
@@ -335,12 +404,82 @@ classdef CrampFit < handle
             set(obj.fig,'WindowButtonDownFcn',@mouseDown);
         end
         
-        function sig = makeSignalPanel(obj, parent)
+        % and let the outside user set the keyboard behavior
+        function setKeyboardCallback(obj, fun)
+            % define our own internal keyboard function
+            function keyboardFcn(~,e)
+                if e.Character == 'a'
+                    % autoscale axes
+                    for i=1:length(obj.sigs)
+                        obj.sigs(i).resetY();
+                    end
+                end
+                
+                % and then pass it on
+                fun(e);
+            end
+            set(obj.fig,'WindowKeyPressFcn',@keyboardFcn);
+        end
+        
+        % adding and removing signal panels...
+        function addSignalPanel(obj, sigs)
+            % make a new one at the end
+            i = length(obj.sigs)+1;
+            if (i==1)
+                obj.sigs = obj.makeSignalPanel();
+            else
+                obj.sigs(i) = obj.makeSignalPanel();
+            end
+            % save which signals we want to draw
+            obj.sigs(i).sigs = sigs;
+            % and redo their sizes
+            obj.sizeSignalPanels()
+            % and refresh the view, without changing x-limits
+            if i==1
+                % or just reset, if it's the first panel
+                % (which it really shouldn't be?)
+                obj.setView();
+            else
+                obj.refresh();
+            end
+            % autoset the y-limits
+            obj.sigs(i).resetY();
+        end
+        function removeSignalPanel(obj, sig)
+            % just remove the topmost one if none specified
+            if (nargin < 2)
+                sig = 1;
+            end
+            % no more to remove!
+            if (isempty(obj.sigs))
+                return
+            end
+            % otherwise, delete the panel object
+            delete(obj.sigs(sig).panel);
+            % and remove it from the array
+            obj.sigs = obj.sigs((1:length(obj.sigs))~=sig);
+            % and resize!
+            obj.sizeSignalPanels();
+        end
+        function sizeSignalPanels(obj)
+            % this guy just sets the sizes of the panels
+            np = length(obj.sigs);
+            for i=1:np
+                set(obj.sigs(i).panel,'Position',[0 (np-i)/np 1 1/np]);
+            end
+        end
+        
+        % this makes a single panel. positioning/tiling has to be taken
+        % care of externally after creation
+        function sig = makeSignalPanel(obj)
             % create and ultimately return a struct containing panel info
             sig = [];
             
+            % which data to view? (none by default)
+            sig.sigs = [];
+            
             % make a panel to hold the entire thing
-            sig.panel = uipanel('Parent',parent,'Position',[0 0 1 1],'Units','Normalized');
+            sig.panel = uipanel('Parent',obj.panels.Middle,'Position',[0 0 1 1],'Units','Normalized');
             % give it a stylish border
             set(sig.panel,'BorderType','line','BorderWidth',1);
             set(sig.panel,'HighlightColor','black');
@@ -352,9 +491,11 @@ classdef CrampFit < handle
             sig.axes = axes('Parent',sig.panel,'Position',[0 0 1 1],...
                 'XTickLabel','','YTickLabel','',...
                 'XColor', 0.8*[1 1 1],'YColor', 0.8*[1 1 1],'GridLineStyle','-','Box','on');
+            % let's bind the context menu here as well
+            set(sig.axes,'uicontextmenu',obj.hcmenu);
             % and gridify it
-            grid
-            hold(sig.axes)
+            grid;
+            evalc('hold(sig.axes)');
 
             % magic function to make Y-axes consistent, saving me some
             % bookkeeping headaches and stuff
@@ -434,57 +575,77 @@ classdef CrampFit < handle
             % set the resize function
             set(sig.panel, 'ResizeFcn', @resizeFcn);
             % and call it to set default positions
-            resizeFcn            
+            resizeFcn
         end
         
+        % just refresh the view
+        function refresh(obj)
+            obj.setView(obj.getView());
+        end
         
+        % returns x-limits of current screen
+        function xlim=getView(obj)
+            xlim = get(obj.xaxes,'XLim');
+        end
         
-        function setView(obj,range)
-            %SETVIEW sets the x-limits (with bounding, of course)
-            
+        % sets the x-limits (with bounding, of course)
+        function setView(obj,rng)
             % if we don't have anything loaded, get outta here
             if isempty(obj.data)
                 return
             end
             
-            wasempty = 0;
-            if (isempty(range))
+            % also, check if we got a range at all or not
+            if (nargin < 2)
                 range = [obj.data.tstart obj.data.tend];
-                wasempty = 1;
+            else
+                range = rng;
             end
             
+            % are we too zoomed-out?
             dr = range(2)-range(1);
             if (dr > obj.data.tend)
+                range = [obj.data.tstart obj.data.tend];
                 dr = obj.data.tend;
             end
+            % or too zoomed-in?
             if (dr == 0)
                 return
             end
             
+            % are we too far to the left?
             if (range(1) < 0)
+                % then shift back
                 range = range - range(1);
             end
+            % or too far to the right?
             if (range(2) > obj.data.tend)
                 range = [-dr 0] + obj.data.tend;
             end
             
+            % now we can set all the xlims properly
             set(obj.xaxes,'XLim',range);
-            for h=[obj.sigs.axes]
-                set(h,'XLim',range);
-            end
+            set([obj.sigs.axes],'XLim',range);
             
+            % get the data
             d = obj.data.getViewData(range);
-            for i=1:2
-                h = obj.sigs(i).axes;
-                ylim = get(h,'YLim');
-                cla(h);
-                plot(obj.sigs(i).axes,d(:,1),d(:,i+1));
-                if (size(d,2) > 3)
-                    plot(obj.sigs(i).axes,d(:,1),d(:,i+3),'r');
+            
+            % and replot everything
+            for i=1:length(obj.sigs)
+                % get the y-limit
+                ylim = obj.sigs(i).getY();
+                cla(obj.sigs(i).axes);
+                % plot the selected signals
+                if isempty(obj.sigs(i).sigs)
+                    continue
                 end
-                if (wasempty)
+                plot(obj.sigs(i).axes,d(:,1),d(:,obj.sigs(i).sigs));
+
+                if (nargin < 2)
+                    % if we did setView(), reset Y
                     obj.sigs(i).resetY();
                 else
+                    % otherwise, keep it where it was
                     obj.sigs(i).setY(ylim);
                 end
             end

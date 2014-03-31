@@ -223,8 +223,9 @@ classdef SignalData < handle
                     % and which to read from
                     src = obj.vsrcs{i};
                     fun = obj.vfuns{i};
-                    % and execute it
-                    obj.dcache(:,dst) = fun(obj.dcache(:,src));
+                    % and execute it, making sure right number of cols etc
+                    A = fun(obj.dcache(:,src));
+                    obj.dcache(:,dst) = A(:,(end-obj.nsigs+1):end);
                 end
             end
             % now we definitely have the points
@@ -317,9 +318,13 @@ classdef SignalData < handle
                 fun = obj.vfuns{i};
                 % and execute it
                 if ~isempty(obj.dcache)
-                    obj.dcache(:,dst) = fun(obj.dcache(:,src));
+                    % just a check to make sure we get the right number
+                    % of columns from the virtual functions
+                    A = fun(obj.dcache(:,src));
+                    obj.dcache(:,dst) = A(:,(end-obj.nsigs+1):end);
                 end
-                obj.datared(:,dst) = fun(obj.datared(:,src));
+                A = fun(obj.datared(:,src));
+                obj.datared(:,dst) = A(:,(end-obj.nsigs+1):end);
             end
         end
                 

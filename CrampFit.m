@@ -28,6 +28,7 @@ classdef CrampFit < handle
             obj.DEFS.BUTLEFT        = 3;
             obj.DEFS.BUTBOT         = 3;
             obj.DEFS.LABELWID       = 200;
+            obj.DEFS.CURSCOLOR      = [0 0.5 0.5];
             
             % start making GUI objects
             obj.fig = figure('Name','CrampFit!!!1111','MenuBar','none',...
@@ -150,15 +151,20 @@ classdef CrampFit < handle
             % make an x-axis for display porpoises only. this will need to
             % get resized correctly later, sadly :-/
             hxaxes = axes('Parent',obj.panels.Bottom,'TickDir','out',...
-                'Position',[0 1 1 0.01],'YTickLabel','');
+                'Position',[0 1 1 0.01],'YTickLabel','','YLimMode','manual');
             
             obj.xaxes = hxaxes;
             
             % create dummy cursor lines in the x-axis that the real
             % cursor objects can copy
+            % and, conveniently, use them to display little arrows
             obj.cursors = [line() line()];
             set(obj.cursors,'Parent',obj.xaxes,'XData',[0 0],...
-                'YData',[10 10],'Visible','off','Tag','CFCURS');
+                'YData',[-3 -3],'Visible','off','Tag','CFCURS',...
+                'Color',obj.DEFS.CURSCOLOR,'Marker','^',...
+                'MarkerFaceColor',obj.DEFS.CURSCOLOR,'MarkerSize',5,...
+                'Clipping','off','LineStyle','none');
+            
             
             % again, screw scroll bars
             function shiftX(zoom,offset)
@@ -605,7 +611,7 @@ classdef CrampFit < handle
             % equivalent to 'hold on'
             set(sig.axes,'NextPlot','add','XLimMode','manual');
             % and gridify it
-            set(sig.axes,'XGrid','on','YGrid','on');
+            set(sig.axes,'XGrid','on','YGrid','on','Tag','CFAXES');
 
             % magic function to make Y-axes consistent, saving me some
             % bookkeeping headaches and stuff
@@ -658,7 +664,7 @@ classdef CrampFit < handle
             % make the cursors, and start them off invisible
             sig.cursors = [line() line()];
             set(sig.cursors,'Parent',sig.axes,'XData',[5 5],'YData',1e3*[-1 1],...
-                'Color',[0 0.5 0.5],'Visible','off','Tag','CFCURS');
+                'Color',obj.DEFS.CURSCOLOR,'Visible','off','Tag','CFCURS');
             
             % link their properties to the dummy x-axis cursor
             % this way we never have to think about it
@@ -715,6 +721,15 @@ classdef CrampFit < handle
             set(sig.panel, 'ResizeFcn', @resizeFcn);
             % and call it to set default positions
             resizeFcn
+        end
+        
+        % clears all user-added objects from axes
+        function clearAxes(obj)
+            for i=1:length(obj.psigs)
+                % find objects with empty tags, and kill them
+                hs = findobj(obj.psigs(i).axes,'Tag','');
+                delete(hs);
+            end
         end
         
         % bring cursors to view window

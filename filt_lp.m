@@ -1,5 +1,5 @@
-function [ filtdata ] = filt_hp( data, n, wp )
-    %FILT_HP Filters data using a high-pass Butterworth filter
+function [ filtdata ] = filt_lp( data, n, wp )
+    %FILT_HP Filters data using a low-pass Butterworth filter
     %   Frequency wp is in Hz, si in sec, n is poles
 
     % extract si. easier than passing each time
@@ -10,7 +10,7 @@ function [ filtdata ] = filt_hp( data, n, wp )
     wn = wp*si/pi;
 
     % create the filter coefficients
-    [b a] = butter(n, wn, 'high');
+    [b a] = butter(n, wn, 'low');
 
     % copy
     filtdata = data;

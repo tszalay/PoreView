@@ -1,7 +1,8 @@
 function vout = example(  )
 
     % load a file
-    c = CrampFit('C:\Axon\Nanopores\14301033.abf');
+    %c = CrampFit('C:\Axon\Nanopores\14301033.abf');
+    c = CrampFit('C:\AxoData\14301033.abf');
     
     ranges = [];
     
@@ -29,11 +30,11 @@ function vout = example(  )
 
     % add virtual signals
     % subselected data filter, remove nothing yet
-    c.data.addVirtualSignal(@(d) filt_rmrange(d,ranges),'Range-edited');
+    s = c.data.addVirtualSignal(@(d) filt_rmrange(d,ranges),'Range-edited');
     % high pass acts on subselected data
-    c.data.addVirtualSignal(@(d) filt_hp(d,4,100),'High-pass',[1,4,5]);
+    hp = c.data.addVirtualSignal(@(d) filt_hp(d,4,100),'High-pass',[1 s]);
     % tell median to act on high-passed data
-    c.data.addVirtualSignal(@(d) filt_med(d,13),'Median',[1,6,7]);
+    c.data.addVirtualSignal(@(d) filt_med(d,13),'Median',[1 hp]);
     
     % this sets which signals to draw in each panel
     c.psigs(1).sigs = 4;

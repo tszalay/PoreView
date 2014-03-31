@@ -261,7 +261,8 @@ classdef SignalData < handle
         % give it a function, the name of the function, and which columns
         % to pass to the function (including virtual ones!)
         % if name already exists, it gets overwritten
-        function addVirtualSignal(obj, fun, name, src)
+        % also, returns which columns this guy writes to
+        function dst = addVirtualSignal(obj, fun, name, src)
             % if we didn't specify source, do time + orig. signals
             if (nargin < 4)
                 src = 1:obj.nsigs+1;
@@ -286,6 +287,9 @@ classdef SignalData < handle
             
             % and now that we've added it, make sure reduced and cached data's good
             obj.updateVirtualData();
+            
+            % and return the output signals
+            dst = 1+obj.nsigs*i+(1:obj.nsigs);
         end
         
         % update reduced data with virtual signals

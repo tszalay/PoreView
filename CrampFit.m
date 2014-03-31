@@ -39,7 +39,7 @@ classdef CrampFit < handle
                     0.7 0.1 0.1;...
                     0.0 0.6 0.6;...
                     0.5 0.0 0.5;...
-                    0.6 0.6 0.3];
+                    0.6 0.6 0.3  ];
 
             % Set the color order 
             set (obj.fig, 'DefaultAxesColorOrder', CO); 
@@ -517,6 +517,17 @@ classdef CrampFit < handle
                 end
             end
             set(obj.fig,'WindowKeyPressFcn',@keyboardFcn);
+        end
+        
+        % or, we can do blocking waits on key presses
+        function k = waitKey(obj)
+            if(waitforbuttonpress())
+                % key was pressed
+                k = get(obj.fig,'CurrentCharacter');
+            else
+                % mouse was pressed
+                k = -1;
+            end
         end
         
         % adding and removing signal panels...

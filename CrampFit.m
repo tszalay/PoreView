@@ -86,13 +86,6 @@ classdef CrampFit < handle
                 % and redraw
                 obj.refresh();
             end
-            function rmsig(sig)
-                % remove sig from the list of this signal panel's signals
-                ss = obj.psigs(obj.cursig).sigs;
-                obj.psigs(obj.cursig).sigs = ss((1:length(ss)) ~= find(ss == sig,1));
-                % and redraw
-                obj.refresh();
-            end
             function popSigMenuFcn(~,~)
                 % delete the old ones
                 delete(obj.sigmenus);
@@ -113,13 +106,6 @@ classdef CrampFit < handle
                 for i=1:length(slist)
                     obj.sigmenus(end+1) = uimenu(st,'Label',slist{i});
                     set(obj.sigmenus(end),'Callback',@(~,~) setsig(i+1));
-                end
-                
-                % and to remove, one for each of this guy's active signals
-                ss = obj.psigs(obj.cursig).sigs;
-                for j=1:length(ss)
-                    obj.sigmenus(end+1) = uimenu(sr,'Label',slist{ss(j)-1});
-                    set(obj.sigmenus(end),'Callback',@(~,~) rmsig(ss(j)));
                 end
             end
             

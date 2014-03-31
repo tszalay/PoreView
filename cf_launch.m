@@ -47,21 +47,25 @@ function cf = cf_launch(fname)
             % subselected data filter
             f_rm = cf.data.addVirtualSignal(@(d) filt_rmrange(d,ranges),'Range-edited');
             % high pass acts on subselected data
-            f_hp = cf.data.addVirtualSignal(@(d) filt_hp(d,4,100),'High-pass',[1 f_rm]);
+            f_hp = cf.data.addVirtualSignal(@(d) filt_hp(d,4,100),'High-pass',f_rm);
             % tell median to act on high-passed data
-            f_med = cf.data.addVirtualSignal(@(d) filt_med(d,15),'Median',[1 f_hp]);
+            f_med = cf.data.addVirtualSignal(@(d) filt_med(d,15),'Median',f_hp);
             
             % also set which signals to draw in each panel
             cf.psigs(1).sigs = f_rm(1);
-            cf.psigs(2).sigs = f_rm(2);
             % draw both median-filtered panels
             cf.addSignalPanel(f_med);
 
             disp('Filters added')
         
         elseif strcmp(e.Character,'n')
-            % make a noise plot of currently visible data
-            plot_noise(cf.data,cf.getView());
+            % if cursors, do those
+            tr = cf.getCursors();
+            if isempty(tr)
+                tr = cf.getView();
+            end
+            % then make a noise plot
+            plot_noise(cf.data,tr);
         end
     end
 

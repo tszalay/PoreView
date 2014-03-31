@@ -19,6 +19,10 @@ function plot_noise(sigdata, trange)
     for ind=irange(1):fftsize:irange(2)
         % get only the real signals
         d = sigdata.get(ind:ind+fftsize-1,1+(1:sigdata.nsigs));
+        % quit if we don't have enough points
+        if size(d,1) < fftsize
+            break
+        end
         % calculate power spectrum
         df = abs(fft(d)).^2/fftsize;
         % and add to fft accum.

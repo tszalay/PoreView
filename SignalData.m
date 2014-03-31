@@ -39,7 +39,7 @@ classdef SignalData < handle
                 % first, load some info on the file
                 [d,si,h]=abfload(obj.filename,'info');
             catch
-                fprintf(2,'Failed to load file %s!\n')
+                fprintf(2,'Failed to load file %s!\n',obj.filename);
                 obj.ndata = -1;
                 return
             end
@@ -58,7 +58,9 @@ classdef SignalData < handle
             
             obj.header = h;
             obj.si = si*1e-6;
-            obj.ndata = h.dataPtsPerChan;
+            % knock a couple points off the end, just to prevent
+            % bizarre off-by-one errors...?
+            obj.ndata = h.dataPtsPerChan - 2;
             obj.tstart = 0; % dunno how to get actual start from abf
             obj.tend = obj.si*(obj.ndata-1);
             obj.nsigs = h.nADCNumChannels;
@@ -79,7 +81,7 @@ classdef SignalData < handle
                 % HAVE WHEEEEEE
                 obj.nred = 5e5;
                 
-                fprintf('\n\nBuilding reduced data with %d points -  0%%',obj.nred);
+                fprintf('\n\nBuilding reduced data with %d points -  0%%\n',obj.nred);
                 obj.datared = zeros(obj.nred,obj.nsigs+1);
  
                 % go through entire file and build it
@@ -121,7 +123,7 @@ classdef SignalData < handle
                     ired = ired + nstepred;
                     
                     % display percent loaded something something foo
-                    fprintf('\b\b\b%2d%%',floor(100*ired/obj.nred));
+                    fprintf('\b\b\b\b%2d%%\n',floor(100*ired/obj.nred));
                 end
                 
                 % trim off extra points
@@ -133,7 +135,7 @@ classdef SignalData < handle
                     save([obj.filename  '_red.mat'],'red');
                     fprintf('\nDone, saved to %s_red.mat.\n',obj.filename);
                 catch
-                    fprintf(2,'Could not save reduced data to %s_red.mat!\n',obj.filename);
+                    fprintf(2,'\nCould not save reduced data to %s_red.mat!\n',obj.filename);
                 end
             end
         end
@@ -273,6 +275,11 @@ classdef SignalData < handle
             % if we didn't specify source, do time + orig. signals
             if (nargin < 4)
                 src = 1:obj.nsigs+1;
+            else
+                % and if we did, make sure 1 is on there
+                if isempty(find(src==1,1))
+                    src = [1 src];
+                end
             end
             
             % check if this one exists already, if we were given a name

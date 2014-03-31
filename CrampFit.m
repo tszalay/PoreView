@@ -612,7 +612,7 @@ classdef CrampFit < handle
             % and then the main axes object for showing data
             sig.axes = axes('Parent',sig.panel,'Position',[0 0 1 1],...
                 'XTickLabel','','YTickLabel','','GridLineStyle','-',...
-                'XColor', 0.9*[1 1 1],'YColor', 0.9*[1 1 1]);
+                'XColor', 0.85*[1 1 1],'YColor', 0.85*[1 1 1]);
             % let's bind the context menu here as well
             set(sig.axes,'uicontextmenu',obj.hcmenu);
             % equivalent to 'hold on'

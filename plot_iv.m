@@ -47,8 +47,8 @@ function [Vs, Is] = plot_iv(filename)
     % and labels
     dV = 40; % mV
 	% V ticks, step from 20 to end-ish
-    Vts = dV:dV:Vs(end);
-    tickX = [-flip(Vts) Vts];
+    Vts = dV/2:dV:Vs(end);
+    tickX = [-fliplr(Vts) Vts];
     
     % tick spacing in Y, do a clever thing
     dy = ylim(2)/4;
@@ -68,7 +68,7 @@ function [Vs, Is] = plot_iv(filename)
     dy = dy * 10^ly;
     
     tickY = dy:dy:ylim(2);
-    tickY = [-flip(tickY) tickY];
+    tickY = [-fliplr(tickY) tickY];
     
     set(ax,'XTick',tickX,'YTick',tickY);
     
@@ -101,7 +101,7 @@ function [Vs, Is] = plot_iv(filename)
     end
     
     % now move original lines to the top
-    uistack(flip(plts),'top');
+    uistack(flipud(plts),'top');
     
     % get their names
     M = get(hs,'DisplayName');

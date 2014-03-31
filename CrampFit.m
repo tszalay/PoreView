@@ -31,7 +31,7 @@ classdef CrampFit < handle
             obj.DEFS.CURSCOLOR      = [0 0.5 0.5];
             
             % start making GUI objects
-            obj.fig = figure('Name','CrampFit!!!1111','MenuBar','none',...
+            obj.fig = figure('Name','CrampFit','MenuBar','none',...
                 'NumberTitle','off','DockControls','off');
             
             % Build a new color map
@@ -250,6 +250,10 @@ classdef CrampFit < handle
             d = SignalData(fname);
             
             if d.ndata < 0
+                if (d.ndata == -2)
+                    disp('IV curve found, attempting load...');
+                    plot_iv(fname);
+                end
                 return
             end
             % set internal data
@@ -523,7 +527,7 @@ classdef CrampFit < handle
                 
                 % and then pass it on to the user-defined function
                 % (but only if a real key was pressed, not just shift etc)
-                if ~isempty(e.Character)
+                if ~any(strcmp(e.Key,{'shift','control','alt'}))
                     fun(e);
                 end
             end
@@ -769,6 +773,13 @@ classdef CrampFit < handle
         
         % positions of the cursors
         function curs = getCursors(obj)
+            % return empty if they're invisible
+            if strcmp(get(obj.cursors(1),'Visible'),'off')
+                curs = [];
+                return
+            end
+            
+            % otherwise return their positions
             curs = zeros(1,2);
             for i=1:2
                 curs(i) = mean(get(obj.cursors(i),'XData'));

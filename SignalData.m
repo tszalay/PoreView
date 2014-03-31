@@ -39,8 +39,14 @@ classdef SignalData < handle
                 % first, load some info on the file
                 [d,si,h]=abfload(obj.filename,'info');
             catch
-                fprintf(2,'Failed to load file!\n')
+                fprintf(2,'Failed to load file %s!\n')
                 obj.ndata = -1;
+                return
+            end
+            
+            % check if it's an IV curve, and cry if it is
+            if (h.lEpisodesPerRun > 1)
+                obj.ndata = -2;
                 return
             end
             
@@ -238,8 +244,8 @@ classdef SignalData < handle
     
         % this is how to access the data from the outside
         % because overwriting subsref is dumb and slow, even if it is cute
-        % calling this as data(1:10) is same as data([1,10])
-        function d = data(obj,pts,sigs)
+        % calling this as get(1:10) is same as get([1,10])
+        function d = get(obj,pts,sigs)
             if nargin < 3
                 sigs = ':';
             end

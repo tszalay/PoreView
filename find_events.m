@@ -1,19 +1,5 @@
-function DNAevent = example_events(cf)
+function DNAevent = find_events(cf)
 %FIND_EVENTS Finds and returns an array of DNAevent structs
-
-    if (nargin < 1)
-        cf = CrampFit('C:\AxoData\14301033.abf');
-        
-        % high pass acts on subselected data
-        f_hp = cf.data.addVirtualSignal(@(d) filt_hp(d,4,100),'High-pass');
-        
-        % tell median to act on high-passed data
-        f_med = cf.data.addVirtualSignal(@(d) filt_med(d,13),'Median',[1 f_hp]);
-    
-        % this sets which signals to draw in each panel
-        cf.psigs(1).sigs = 3;
-        cf.psigs(2).sigs = f_med(2);
-    end
 
     DNAevent = [];
 
@@ -30,7 +16,7 @@ function DNAevent = example_events(cf)
     
     while 1
         % next chunk of data
-        data = cf.data.data(curind:curind+maxpts,sig);
+        data = cf.data.get(curind:curind+maxpts,sig);
         
         % if we have overstepped our bounds, aka are done with the file
         if isempty(data)
@@ -55,7 +41,7 @@ function DNAevent = example_events(cf)
         imax = curind + 400;
 
         % find the end of the event
-        imax = find(cf.data.data(imin:imax,sig) > 0.75*thresh,1,'last');
+        imax = find(cf.data.get(imin:imax,sig) > 0.75*thresh,1,'last');
         % make sure we have an end for the event
         if (isempty(imax))
             continue
@@ -71,7 +57,7 @@ function DNAevent = example_events(cf)
         curind = imax;
         
         % event? maybe event?
-        ts = [cf.data.data(imin,1), cf.data.data(imax,1)];
+        ts = [cf.data.get(imin,1), cf.data.get(imax,1)];
         % time range to view, extended past the event a bit
         viewt = [ts(1)-0.001, ts(2)+0.001];
         
@@ -79,7 +65,7 @@ function DNAevent = example_events(cf)
         dna = [];
         
         % store the data we want, including times
-        dna.data = cf.data.data(imin:imax,[1 sig]);
+        dna.data = cf.data.get(imin:imax,[1 sig]);
 
         % and the start and end times for the event
         dna.tstart = ts(1);

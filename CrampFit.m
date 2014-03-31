@@ -514,7 +514,12 @@ classdef CrampFit < handle
                 end
                 if strcmp(e.Key,'escape')
                     delete(obj.fig);
+                    return
                 end
+                
+                % just in case we're waiting for a blocking keyboard event
+                % we should make sure it happens
+                uiresume(obj.fig);
                 
                 % and then pass it on to the user-defined function
                 % (but only if a real key was pressed, not just shift etc)
@@ -527,13 +532,11 @@ classdef CrampFit < handle
         
         % or, we can do blocking waits on key presses
         function k = waitKey(obj)
-            if(waitforbuttonpress())
-                % key was pressed
-                k = get(obj.fig,'CurrentCharacter');
-            else
-                % mouse was pressed
-                k = -1;
-            end
+            % wait for uiresume event
+            uiwait(obj.fig);
+            
+            % key was pressed, fetch it
+            k = get(obj.fig,'CurrentCharacter');
         end
         
         % adding and removing signal panels...
@@ -723,12 +726,24 @@ classdef CrampFit < handle
             resizeFcn
         end
         
+        % returns handle to specified axes
+        function h = getAxes(obj, ind)
+            h = obj.psigs(ind).axes;
+        end
+        
         % clears all user-added objects from axes
         function clearAxes(obj)
             for i=1:length(obj.psigs)
                 % find objects with empty tags, and kill them
                 hs = findobj(obj.psigs(i).axes,'Tag','');
                 delete(hs);
+            end
+        end
+        
+        % autoscales y-axes
+        function autoscaleY(obj)
+            for i=1:length(obj.psigs)
+                obj.psigs(i).resetY();
             end
         end
         

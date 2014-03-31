@@ -1,4 +1,4 @@
-function cf = example()
+function cf = example_basic()
 
     % load a file
     %cf = CrampFit('C:\Axon\Nanopores\14301033.abf');

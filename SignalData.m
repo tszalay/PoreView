@@ -45,9 +45,11 @@ classdef SignalData < handle
             end
             
             % check if it's an IV curve, and cry if it is
-            if (h.lEpisodesPerRun > 1)
-                obj.ndata = -2;
-                return
+            try
+                if (h.lEpisodesPerRun > 1)
+                    obj.ndata = -2;
+                    return
+                end
             end
             
             % clear virtual signal parts

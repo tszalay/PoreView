@@ -37,7 +37,7 @@ classdef SignalData < handle
             % try to load file, see if we got it right
             try
                 % first, load some info on the file
-                [d,si,h]=abfload(obj.filename,'info');
+                [~,si,h]=abfload(obj.filename,'info');
             catch
                 fprintf(2,'Failed to load file %s!\n',obj.filename);
                 obj.ndata = -1;
@@ -46,10 +46,13 @@ classdef SignalData < handle
             
             % check if it's an IV curve, and cry if it is
             try
-                if (h.lEpisodesPerRun > 1)
+                if h.lSynchArraySize > 0
                     obj.ndata = -2;
                     return
                 end
+            catch
+                fprintf(2,'Unrecognized file!\n');
+                return
             end
             
             % clear virtual signal parts
@@ -146,8 +149,10 @@ classdef SignalData < handle
     methods
         % returns reduced or full data in a specified time range
         % with the full one being returned once it would be few enough pts
-        function d = getViewData(obj,trange)
+        function [d, isred] = getViewData(obj,trange)
             dt = trange(2)-trange(1);
+            
+            % trim the time range if it's too big
             if (trange(1) < 0)
                trange(1) = 0;
             end
@@ -174,11 +179,15 @@ classdef SignalData < handle
                 inds = floor(trange/redsi);
                 % already contains virtual data
                 d = obj.datared(inds(1)+1:inds(2),:);
+                % and set our using reduced flag
+                isred = true;
             else
                 % use full, if we have virtual signals the array will
                 % be bigger and stuff and junk
                 pts = floor(trange/obj.si);
                 d = obj.getData(pts(1),pts(2));
+                % and set flag
+                isred = false;
             end
         end
         

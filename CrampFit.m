@@ -43,7 +43,7 @@ classdef CrampFit < handle
                     0.6 0.6 0.3  ];
 
             % Set the color order 
-            set (obj.fig, 'DefaultAxesColorOrder', CO); 
+            set(obj.fig, 'DefaultAxesColorOrder', CO); 
             
             % how we load a new file
             function openFileFcn(~,~)
@@ -843,8 +843,15 @@ classdef CrampFit < handle
             set(obj.xaxes,'XLim',range);
             set([obj.psigs.axes],'XLim',range);
             
-            % get the data
-            d = obj.data.getViewData(range);
+            % get the data, and whether we're looking at reduced
+            [d, isred] = obj.data.getViewData(range);
+            % set the axes color maps to be lighter if using reduced
+            CO = get(obj.fig, 'DefaultAxesColorOrder');
+            % normal CO is dark
+            if isred
+                % make it lighter
+                CO = 1 - 0.68*(1-CO);
+            end
             
             % and replot everything
             for i=1:length(obj.psigs)
@@ -858,6 +865,9 @@ classdef CrampFit < handle
                 if isempty(obj.psigs(i).sigs)
                     continue
                 end
+                % set the axes color order
+                set(obj.psigs(i).axes,'ColorOrder',CO);
+                
                 % get the plot handles
                 hps = plot(obj.psigs(i).axes,d(:,1),d(:,obj.psigs(i).sigs));
                 % and tag them to clear them next time, also make them

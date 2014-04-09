@@ -9,7 +9,7 @@ function [Vs, Is] = plot_iv(filename)
         return
     end
 
-    if (h.lEpisodesPerRun == 1)
+    if (h.lSynchArraySize == 0)
         fprintf(2,'%s is not an IV curve.\n',filename);
         return
     end

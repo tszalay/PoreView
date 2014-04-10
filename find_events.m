@@ -1,12 +1,20 @@
 function DNAevent = find_events(cf)
 %FIND_EVENTS Finds events and returns an array of DNAevent structs
 %   events = find_events(cf)
+%   This is just an example of how to use CrampFit.
+
+    % Alternatively, instead of passing a CrampFit instance to the code,
+    % you could just initialize one here:
+    % cf = CrampFit(filename);
+    % and then add any virtual signals you need, set up the panels, and
+    % then start finding events on your merry way...
 
     DNAevent = [];
 
     thresh = 0.07;
     
-    % use the signal specified in the second panel of CrampFit
+    % use the signal specified in the second panel of CrampFit for the
+    % event finding. you'd probably just hardcode this in your own code.
     sig = cf.psigs(2).sigs;
 
     % loop through entire file, a bit at a time
@@ -16,7 +24,7 @@ function DNAevent = find_events(cf)
         % find next data exceeding threshold, stepping current index
         curind = cf.data.findNext(@(d) d(:,sig) > thresh, curind);
         
-        % if we didn't find any, we're done
+        % if we didn't find any, we're done with the file
         if curind < 0
             break
         end
@@ -47,6 +55,7 @@ function DNAevent = find_events(cf)
         dna = [];
         
         % store the data we want, including times
+        % note that we're only grabbing the signal we're analyzing
         dna.data = cf.data.get(imin:imax,[1 sig]);
 
         % and the start and end times for the event
@@ -65,11 +74,14 @@ function DNAevent = find_events(cf)
             [0 0 dna.blockage dna.blockage 0 0],'r');
         % this line ignores the stuff you drew, in case you're wondering
         cf.autoscaleY();
-        % do this just for shits
+        % do this just for kicks
         cf.setCursors(ts);
         
+        % if you want it to run automatically, this would be the part you
+        % would change, or something
         k = cf.waitKey();
-        % clear, and force a redraw
+        % clear, and force a redraw. this way, you don't accidentally press
+        % keys twice because you don't know if it's thinking or not.
         cf.clearAxes();
         pause(0.01);
         

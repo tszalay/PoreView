@@ -1,5 +1,10 @@
 function [Vs, Is] = plot_iv(filename)
-%PLOT_IV Plots IV curves from the file in filename
+%PLOT_IV Plots IV curves from the file in filename, if it can.
+%   IMPORTANT NOTE: Because I couldn't find the voltage information in the
+%   abf file header, the voltages are hardcoded to be -200mV to 200mV, you
+%   will need to modify if necessary.
+%   Also, it only averages the last 25% of each sweep to get point, change
+%   if you want (this is for very capacitive pores).
 
     try
         % try to load the entire file
@@ -9,6 +14,7 @@ function [Vs, Is] = plot_iv(filename)
         return
     end
 
+    % check if it's an IV curve
     if (h.lSynchArraySize == 0)
         fprintf(2,'%s is not an IV curve.\n',filename);
         return
@@ -16,24 +22,31 @@ function [Vs, Is] = plot_iv(filename)
     
     sz = size(d);
     
+    % make the voltages
     Vs = linspace(-200,200,sz(3))';
     
-    % hwo much of the data do we want to use?
+    % how much of the data do we want to use?
     % start with last 1/4, for now
     indst = floor(sz(1)*0.75);
+    % Get current values into a 1D/2D array, from 3D
     Is = reshape(mean(d(indst:end,:,:),1),sz(2:3))';
     
-    figure('Name',sprintf('I-V Plot of %s',filename),'NumberTitle','off');
+    hfig = figure('Name',sprintf('I-V Plot of %s',filename),'NumberTitle','off');
     
+    % draw the axes
     ax = axes('Position',[0.01 0.01 0.98 0.9],'Box','off','NextPlot','add');
+    % draw the data points
     plts = plot(ax,Vs,Is,'Marker','o','MarkerSize',2,'MarkerEdgeColor','black');
+    % set them to filled circles
     for i=1:length(plts)
         set(plts(i),'MarkerFaceColor',get(plts(i),'Color'));
     end
     title('Quick I-V Plot');
+    % with lightly colored grid lines
     set(ax,'XTickLabel','','YTickLabel','','XColor',0.8*[1 1 1],'YColor',0.8*[1 1 1]);
     grid on
     % now manually make axes, cuz matlab is dumb
+    % first, extend axes limits slightly
     set(ax,'XLimMode','manual','YLimMode','manual');
     xlim = 1.1*get(ax,'XLim');
     ylim = 1.1*get(ax,'YLim');
@@ -70,6 +83,7 @@ function [Vs, Is] = plot_iv(filename)
     tickY = dy:dy:ylim(2);
     tickY = [-fliplr(tickY) tickY];
     
+    % set the grid lines
     set(ax,'XTick',tickX,'YTick',tickY);
     
     % now draw the labels
@@ -85,6 +99,8 @@ function [Vs, Is] = plot_iv(filename)
     % and add a bit to the lines
     tickX = [2*tickX(1) tickX 2*tickX(end)];
     tickY = [2*tickY(1) tickY 2*tickY(end)];
+    % draw axes ticks as black lines with '+' symbol
+    % super-duper hack wooooo
     plot(ax,tickX,0*tickX,'black','Marker','+');
     plot(ax,0*tickY,tickY,'black','Marker','+');
     
@@ -92,6 +108,7 @@ function [Vs, Is] = plot_iv(filename)
     xs = [tickX(1) tickX(end)];
     hs = [];
     for i=1:sz(2)
+        % fit the lines
         coeffs = polyfit(Vs,Is(:,i),1);
         % draw the line
         ys = coeffs(1)*xs + coeffs(2);
@@ -106,9 +123,17 @@ function [Vs, Is] = plot_iv(filename)
     % get their names
     M = get(hs,'DisplayName');
     
+    % and display only those lines in the legend
     legend(hs,M,'Location','NorthWest');
     legend('show');
     
-    Vs = 0.01*Vs;
+    % also make a close callback, cause I'm spoiled and used to this
+    function keyFun(~,e)
+        if strcmp(e.Key,'escape')
+            close(hfig);
+            return
+        end
+    end
+    set(hfig,'WindowKeyPressFcn',@keyFun);
 end
 

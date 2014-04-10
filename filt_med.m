@@ -1,5 +1,7 @@
 function [ filtdata ] = filt_med( data, n )
-%FILT_MED Runs a median filter on event data, with window size n
+    % FILT_MED Runs a median filter on event data, with window size n
+    %   Data is passed with colums of [time, sig1, sig2, ...], and
+    %       returns the same array but with the data filtered.
 
     % copy to output
     filtdata = data;

@@ -1,6 +1,26 @@
 classdef CrampFit < handle
     %CRAMPFIT: Analysis suite for streaming signal data
     %
+    % ---------------------------------------------------------------------
+    %
+    % CRAMPFIT Usage:
+    %   Adjusting view
+    %       - Scrolling over a plot zooms the x-axis about the cursor position. 
+    %       - Scrolling over a y-axis zooms that y axis about the cursor position.
+    %       - Middle-click and drag pans the plot.
+    %       - Right-clicking brings up the signal context menu.
+    %       - Left-click and drag on axes to zoom.
+    %       - Press 'a' to autoscale all axes.
+    %
+    %   Cursors
+    %       - Double-click to bring cursors.
+    %       - Click and drag cursors to move them.
+    %       - Press 'c' to show/hide cursors.
+    %
+    %   Press 'Escape' to quit at any time.
+    %
+    % ---------------------------------------------------------------------
+    %
     % CRAMPFIT Methods:
     %   CrampFit(fname) - Starts CrampFit. Filename can be empty, a
     %       filename, or a directory where your files are stored.
@@ -15,8 +35,8 @@ classdef CrampFit < handle
     %
     %   addSignalPanel(sigs) - Add a signal panel, at the bottom, that
     %       displays the signals specified in sigs. Can be [].
-    %   removeSignalPanel(pan) - Remove signal panel indexed by pan
-    %   setSignalPanel(pan,sigs) - Sets pan to display signals sigs.
+    %   removeSignalPanel(panel) - Remove signal panel indexed by panel
+    %   setSignalPanel(panel,sigs) - Sets panel to display signals sigs.
     %
     %   getAxes(pan) - Get the axes object handle for a given panel
     %   clearAxes() - Clear all user-drawn objects from all axes
@@ -31,10 +51,17 @@ classdef CrampFit < handle
     %   getView() - Returns time range visible in window.
     %   setView(trange) - Sets visible time range (clipping appropriately) and redraws.
     %
+    % ---------------------------------------------------------------------
+    %
     % CRAMPFIT Properties:
     %   data - Internal SignalData class, or [] if not loaded
     %   fig - Handle to figure object of program
     %   psigs - Struct array with signal panel information. Click for more.
+    %
+    % ---------------------------------------------------------------------
+    %
+    %
+    %
     
     properties
         data        % Internal SignalData class, or [] if not loaded
@@ -117,13 +144,15 @@ classdef CrampFit < handle
             % make the menu bar
             f = uimenu('Label','File');
             uimenu(f,'Label','Open','Callback',@openFileFcn);
-            uimenu(f,'Label','Quit','Callback',@(~,~) delete(obj.fig));
+            uimenu(f,'Label','Quit','Callback',@(~,~) close(obj.fig));
             c = uimenu('Label','Cursors');
             uimenu(c,'Label','Bring','Callback',@(~,~) obj.bringCursors());
             uimenu(c,'Label','Show/Hide','Callback',@(~,~) obj.toggleCursors());
             hm = uimenu('Label','Help');
-            uimenu(hm,'Label','SignalData','Callback',@(~,~) doc('SignalData'));
-            uimenu(hm,'Label','CrampFit','Callback',@(~,~) doc('CrampFit'));
+            uimenu(hm,'Label','CrampFit','Callback',@(~,~) doc('CrampFit.m'));
+            uimenu(hm,'Label','SignalData','Callback',@(~,~) doc('SignalData.m'));
+            uimenu(hm,'Label','About','Callback',@(~,~) msgbox({'CrampFit written by Tamas Szalay, April 2014.' ...
+                'This program and its author are not affiliated with Molecular Devices.'},'About CrampFit'));
             
             % and the context menus
             obj.hcmenu = uicontextmenu();
@@ -584,7 +613,7 @@ classdef CrampFit < handle
                     return
                 end
                 if strcmp(e.Key,'escape')
-                    delete(obj.fig);
+                    close(obj.fig);
                     return
                 end
                 

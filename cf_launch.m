@@ -1,11 +1,11 @@
-function cf = cf_launch(fname)
+function cf = cf_launch()
+    % CF_LAUNCH()
+    %   This is a 'launcher' file for CrampFit. It is designed to start an
+    %   instance of CrampFit in a specified folder and to give it the 
+    %   keyboard callback behavior you want.
 
-    % load a file, if given
-    if (nargin > 0)
-        cf = CrampFit(fname);
-    else
-        cf = CrampFit('C:\Axon\Nanopores');
-    end
+    % this sets the default directory for File->Open
+	cf = CrampFit('C:\Axon\Nanopores');
     
     % variable to hold the ranges we are trimming
     ranges = [];
@@ -16,14 +16,14 @@ function cf = cf_launch(fname)
             return
         end
         
-        % to figure out what the keys are called
+        % to figure out what the keys are called, uncomment this line
         %disp(e);
         
         if strcmp(e.Character,'k')
             % remove a range of points between cursors
             xlim = cf.getCursors();
             if isempty(xlim)
-                % invisible
+                % cursors are invisible
                 return
             end
             
@@ -51,17 +51,22 @@ function cf = cf_launch(fname)
             % tell median to act on high-passed data
             f_med = cf.data.addVirtualSignal(@(d) filt_med(d,15),'Median',f_hp);
             
-            % also set which signals to draw in each panel
-            cf.psigs(1).sigs = f_rm(1);
+            % also set which signals to draw in each panel, you can play
+            % with this all you like
+            cf.setSignalPanel(1, f_rm(1));
+            
             % draw both median-filtered panels
             cf.addSignalPanel(f_med);
 
             disp('Filters added')
         
         elseif strcmp(e.Character,'n')
+            % display a noise plot!
+            
             % if cursors, do those
             tr = cf.getCursors();
             if isempty(tr)
+                % otherwise, do the full view
                 tr = cf.getView();
             end
             % then make a noise plot

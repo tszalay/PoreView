@@ -1,6 +1,8 @@
 function [ filtdata ] = filt_hp( data, n, wp )
     %FILT_HP Filters data using a high-pass Butterworth filter
-    %   Frequency wp is in Hz, si in sec, n is poles
+    %   Frequency wp is in Hz, n is poles.
+    %   Data is passed with colums of [time, sig1, sig2, ...], and
+    %       returns the same array but with the data filtered.
 
     % extract si. easier than passing each time
     si = data(2,1)-data(1,1);

@@ -1,55 +1,36 @@
 function DNAevent = find_events(cf)
-%FIND_EVENTS Finds and returns an array of DNAevent structs
+%FIND_EVENTS Finds events and returns an array of DNAevent structs
+%   events = find_events(cf)
 
     DNAevent = [];
 
     thresh = 0.07;
     
+    % use the signal specified in the second panel of CrampFit
     sig = cf.psigs(2).sigs;
 
-    % maximum range to check for events at any one time (set by memory)
-    % maybe 100ms or so would be a good number for this
-    maxpts = 1e5;
-    
     % loop through entire file, a bit at a time
     curind = 0;
     
     while 1
-        % next chunk of data
-        data = cf.data.get(curind:curind+maxpts,sig);
+        % find next data exceeding threshold, stepping current index
+        curind = cf.data.findNext(@(d) d(:,sig) > thresh, curind);
         
-        % if we have overstepped our bounds, aka are done with the file
-        if isempty(data)
-            return
+        % if we didn't find any, we're done
+        if curind < 0
+            break
         end
         
-        % find next data exceeding threshold
-        ind = find(data > thresh,1,'first');
-        
-        % if we didn't find any, skip to next range
-        if isempty(ind)
-            curind = curind + maxpts;
-            continue
-        end
-        
-        % move current index to here
-        curind = curind + ind - 1;
-        
-        % ok now let's process it
-        % see how we don't have to worry about overflows here?
         imin = curind;
-        imax = curind + 400;
-
         % find the end of the event
-        imax = find(cf.data.get(imin:imax,sig) > 0.75*thresh,1,'last');
+        imax = cf.data.findNext(@(d) d(:,sig) < 0.75*thresh,curind);
+        
         % make sure we have an end for the event
-        if (isempty(imax))
-            continue
+        if imax < 0
+            break
         end
-        % offset it to global
-        imax = imax + imin - 1;
-
-        % shift by one sample in each directon
+        
+        % shift event by one sample in each directon to get whole event
         imin = imin-1;
         imax = imax+1;
         
@@ -57,7 +38,8 @@ function DNAevent = find_events(cf)
         curind = imax;
         
         % event? maybe event?
-        ts = [cf.data.get(imin,1), cf.data.get(imax,1)];
+        ts = cf.data.si*[imin imax];
+        
         % time range to view, extended past the event a bit
         viewt = [ts(1)-0.001, ts(2)+0.001];
         
@@ -91,6 +73,7 @@ function DNAevent = find_events(cf)
         cf.clearAxes();
         pause(0.01);
         
+        % handle key input
         if (k == 'q')
             return
         elseif (k ~= 'y')

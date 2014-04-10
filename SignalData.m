@@ -1,6 +1,14 @@
 classdef SignalData < handle
-    %SIGNALDATA Class wrapper for streaming signals (esp. abfs)
+    %SIGNALDATA Class wrapper for streaming signals (specifically abfs)
     %   Allows caching and whatnot
+    % SignalData Methods:
+    %   SignalData(fname) - Initialize class on a file, if it exists
+    %   getViewData(trange) - Return reduced or full data in a time range
+    %   get(inds,sigs) - Return full data in specified index range
+    %   getByTime(t0,t1) - Return full data in specified time range
+    %   addVirtualSignal(fun,name,srcs) - Add a virtual signal function
+    %   getSignalList() - Get names of all accessible signals
+    %   findNext(fun,istart) - Find next instance of logical 1
     
     % make it so these don't get screwed up
     properties (SetAccess=immutable)
@@ -31,6 +39,11 @@ classdef SignalData < handle
     
     methods
         function obj = SignalData(fname)
+            % obj = SignalData(filename) - Creates class based on specified file
+            %   Builds reduced data set if it doesn't yet exist, and tries
+            %   to save it. If the file isn't loaded properly, resulting
+            %   obj.ndata is set to -1, or -2 if it's an IV curve.
+            
             % start working!
             obj.filename = fname;
             
@@ -144,12 +157,15 @@ classdef SignalData < handle
                 end
             end
         end
-    end
-    
-    methods
-        % returns reduced or full data in a specified time range
-        % with the full one being returned once it would be few enough pts
+
+        
         function [d, isred] = getViewData(obj,trange)
+            % [data, isReduced] = obj.getViewData([tstart tend])
+            %   Returns reduced or full data in a specified time range,
+            %   with the full one being returned once it wouldn't kill the
+            %   computer. Also tells you if it's using reduced or full
+            %   version.
+            
             dt = trange(2)-trange(1);
             
             % trim the time range if it's too big
@@ -190,10 +206,152 @@ classdef SignalData < handle
                 isred = false;
             end
         end
+    
         
-        % returns data in the specified point range
-        % loads it if it isn't loaded yet
+        function d = get(obj,pts,sigs)
+            % data = obj.get(inds) - Get all signals in range inds
+            % data = obj.get(inds,sigs) - Get specified signals in range inds
+            %   Returns data by index. obj.get(5:43), obj.get(5:43, 1:4)
+            %   etc. Returns in the full specified range, so for example
+            %   obj.get(5:43) is the same as obj.get( [5,43] ).
+            %   If points outside data file limit are requested, will
+            %   trim and possibly return zero points.
+        
+            % if we didn't specify which signals, take all of them
+            if nargin < 3
+                sigs = ':';
+            end
+            % get the data, including time
+            d = obj.getData(min(pts),max(pts));
+            % return only requested signals
+            d = d(:,sigs);
+        end
+        
+        
+        function d = getByTime(obj,t0,t1)
+            % data = obj.getByTime(t0, t1)
+            % data = obj.getByTime([t0 t1])
+            %   Return data points in specified time range, if possible.
+            
+            if nargin == 3
+                t0 = [t0 t1];
+            end
+            pts = floor(t0/obj.si);
+            d = obj.getData(min(pts),max(pts));
+        end
+        
+        
+        function dst = addVirtualSignal(obj, fun, name, src)
+            % dst = obj.addVirtualSignal(fun) - Add a function as a virtual signal
+            % dst = obj.addVirtualSignal(fun, name) - Give it a name, too
+            % dst = obj.addVirtualSignal(fun, name, src) - And which signals to pass to the function
+            %   If signal with name exists, it gets replaced. Either way, 
+            %   returns which columns the virtual signal appears as.
+        
+            % if we didn't specify source, do time + orig. signals
+            if (nargin < 4)
+                src = 1:obj.nsigs+1;
+            else
+                % and if we did, make sure 1 is on there
+                if isempty(find(src==1,1))
+                    src = [1 src];
+                end
+            end
+            
+            % check if this one exists already, if we were given a name
+            if nargin > 2 && any(ismember(obj.vnames, name))
+                i = find(ismember(obj.vnames, name),1);
+            else
+                % or add a new one
+                obj.nvsigs = obj.nvsigs + 1;
+                i = obj.nvsigs;
+            end
+            
+            if (nargin < 3)
+                name = sprintf('Virtual %d',i);
+            end
+            
+            obj.vnames{i} = name;
+            obj.vfuns{i} = fun;
+            obj.vsrcs{i} = src;
+            
+            % and now that we've added it, make sure reduced and cached data's good
+            obj.updateVirtualData(true);
+            
+            % and return the output signals
+            dst = 1+obj.nsigs*i+(1:obj.nsigs);
+        end
+               
+        
+        function siglist = getSignalList(obj)
+            % names = obj.getSignalList()
+            %   Return a list of accessible signals, in order they appear,
+            %   as a cell array.
+            
+            % first signal is always time
+            siglist = {'Time'};
+            for i=1:obj.nsigs
+                siglist{i} = obj.header.recChNames{i};
+            end
+            % for virtual signals, append the filter name
+            for i=1:obj.nvsigs
+                for j=1:obj.nsigs
+                    siglist{i*obj.nsigs+j} = sprintf('%s (%s)',obj.vnames{i},siglist{j});
+                end
+            end
+        end
+        
+        
+        function ind = findNext(obj,fun,istart)
+            % ind = obj.findNext(fun)
+            % ind = obj.findNext(fun, istart)
+            %   Finds next instance of logical 1, starting at index, if
+            %   specified.
+            
+            % we don't need to specify istart
+            if (nargin < 3)
+                istart = 0;
+            end
+            
+            % number of points to step by, hard-coded for now
+            maxPts = 1e5;
+            
+            % loop and find next index of a logical 1
+            while 1
+                d = obj.get(istart:istart+maxPts);
+                
+                % check if we have hit the end of the file?
+                if isempty(d)
+                    % then give up and cry
+                    ind = -1;
+                    return
+                end
+                
+                % find the index! (if we have one)
+                ind = find(fun(d),1,'first');
+                
+                % did we find a logical 1?
+                if ~isempty(ind)
+                    % shift index and return it
+                    ind = ind + istart - 1;
+                    return
+                end
+                
+                istart = istart + maxPts;
+            end
+        end
+        
+    end
+        
+    
+    % internal functions go here
+    methods (Access=private, Hidden=true)
+        
         function d = getData(obj, ptstart, ptend)
+            % data = obj.getData(ptstart,ptend)
+            %   Returns data in the specified point range, from cache. Also
+            %   updates the cache if necessary. This is for internal use.
+        
             % check bounds first thing
             if (ptstart < 0 || ptend > obj.ndata-1 || ptend<ptstart)
                 fprintf(2,'Invalid points %d:%d requested\n',int64(ptstart),int64(ptend));
@@ -235,17 +393,8 @@ classdef SignalData < handle
                 % set, along with loaded data
                 obj.dcache(:,1:obj.nsigs+1) = [ts' d];
                 
-                % now call virtual signal functions
-                for i=1:obj.nvsigs
-                    % which columns to write to?
-                    dst = 1+obj.nsigs*i+(1:obj.nsigs);
-                    % and which to read from
-                    src = obj.vsrcs{i};
-                    fun = obj.vfuns{i};
-                    % and execute it, making sure right number of cols etc
-                    A = fun(obj.dcache(:,src));
-                    obj.dcache(:,dst) = A(:,(end-obj.nsigs+1):end);
-                end
+                % and update the virtual signals, but not for reduced
+                obj.updateVirtualData(false);
             end
             % now we definitely have the points
             % +1 for Matlab's 1-indexed arrays ugh
@@ -254,78 +403,21 @@ classdef SignalData < handle
             
             d = obj.dcache(pts:pte,:);
         end
-    
-        % this is how to access the data from the outside
-        % because overwriting subsref is dumb and slow, even if it is cute
-        % calling this as get(1:10) is same as get([1,10])
-        function d = get(obj,pts,sigs)
-            if nargin < 3
-                sigs = ':';
-            end
-            % get the data, including time
-            d = obj.getData(min(pts),max(pts));
-            % return only requested signals
-            d = d(:,sigs);
-        end
         
-        % or this one, can call as getByTime([t0 t1]) or getByTime(t0,t1)
-        function d = getByTime(obj,t0,t1)
-            if nargin == 3
-                t0 = [t0 t1];
+        function updateVirtualData(obj, dored)
+            % obj.updateVirtualData(dored)
+            %   Is exactly what it sounds like. Updates all of the internal
+            %   virtual data, in full and reduced, if requested.
+            
+            if (dored)
+                % set original reduced data aside
+                d = obj.datared(:,1:obj.nsigs+1);
+                % make the new one
+                obj.datared = zeros(obj.nred, 1+obj.nsigs*(obj.nvsigs+1));
+                % set the originals
+                obj.datared(:,1:obj.nsigs+1) = d;
             end
-            pts = floor(t0/obj.si);
-            d = obj.getData(min(pts),max(pts));
-        end
-        
-        % now let's have some fun! virtual signals start here
-        % give it a function, the name of the function, and which columns
-        % to pass to the function (including virtual ones!)
-        % if name already exists, it gets overwritten
-        % also, returns which columns this guy writes to
-        function dst = addVirtualSignal(obj, fun, name, src)
-            % if we didn't specify source, do time + orig. signals
-            if (nargin < 4)
-                src = 1:obj.nsigs+1;
-            else
-                % and if we did, make sure 1 is on there
-                if isempty(find(src==1,1))
-                    src = [1 src];
-                end
-            end
-            
-            % check if this one exists already, if we were given a name
-            if nargin > 2 && any(ismember(obj.vnames, name))
-                i = find(ismember(obj.vnames, name),1);
-            else
-                % or add a new one
-                obj.nvsigs = obj.nvsigs + 1;
-                i = obj.nvsigs;
-            end
-            
-            if (nargin < 3)
-                name = sprintf('Virtual %d',i);
-            end
-            
-            obj.vnames{i} = name;
-            obj.vfuns{i} = fun;
-            obj.vsrcs{i} = src;
-            
-            % and now that we've added it, make sure reduced and cached data's good
-            obj.updateVirtualData();
-            
-            % and return the output signals
-            dst = 1+obj.nsigs*i+(1:obj.nsigs);
-        end
-        
-        % update reduced data with virtual signals
-        function updateVirtualData(obj)
-            % set original reduced data aside
-            d = obj.datared(:,1:obj.nsigs+1);
-            % make the new one
-            obj.datared = zeros(obj.nred, 1+obj.nsigs*(obj.nvsigs+1));
-            % set the originals
-            obj.datared(:,1:obj.nsigs+1) = d;
-            
+
             % do the same with the cache
             if ~isempty(obj.dcache)
                 d = obj.dcache(:,1:obj.nsigs+1);
@@ -347,20 +439,9 @@ classdef SignalData < handle
                     A = fun(obj.dcache(:,src));
                     obj.dcache(:,dst) = A(:,(end-obj.nsigs+1):end);
                 end
-                A = fun(obj.datared(:,src));
-                obj.datared(:,dst) = A(:,(end-obj.nsigs+1):end);
-            end
-        end
-                
-        % return a list of accessible signals, in order they appear
-        function siglist = getSignalList(obj)
-            siglist = {};
-            for i=1:obj.nsigs
-                siglist{i} = obj.header.recChNames{i};
-            end
-            for i=1:obj.nvsigs
-                for j=1:obj.nsigs
-                    siglist{i*obj.nsigs+j} = sprintf('%s (%s)',obj.vnames{i},siglist{j});
+                if (dored)
+                    A = fun(obj.datared(:,src));
+                    obj.datared(:,dst) = A(:,(end-obj.nsigs+1):end);
                 end
             end
         end

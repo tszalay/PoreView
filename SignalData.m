@@ -1,6 +1,6 @@
 classdef SignalData < handle
-    %SIGNALDATA Class wrapper for streaming signals (specifically abfs)
-    %   Allows caching and whatnot
+    %SIGNALDATA: Class wrapper for streaming signals (specifically abfs)
+    %
     % SignalData Methods:
     %   SignalData(fname) - Initialize class on a file, if it exists
     %   getViewData(trange) - Return reduced or full data in a time range
@@ -10,13 +10,21 @@ classdef SignalData < handle
     %   getSignalList() - Get names of all accessible signals
     %   findNext(fun,istart) - Find next instance of logical 1
     %   findPrev(fun,istart) - Find previous instance of logical 1
+    %
+    % SignalData Properties:
+    %   filename - Loaded name of file
+    %   ndata - Number of data points (per signal)
+    %   nsigs - Number of signals in file
+    %   si - Sampling interval, seconds
+    %   tstart - Start time of file, set to 0
+    %   tend - End time of file
+    %   header - Header struct from abf file
     
     % make it so these don't get screwed up
     properties (SetAccess=immutable)
         filename    % filename we are working with
         ndata       % number of points
         nsigs       % number of signals (not including time)
-        nred        % number of points to store in the reduced array
         si          % sampling interval
         tstart      % start time of file, set to 0
         tend        % end time of file
@@ -25,6 +33,7 @@ classdef SignalData < handle
     
     % can't change these from the outside
     properties (SetAccess=private, Hidden=true)
+        nred        % number of points to store in the reduced array
         datared     % subsampled data, in min-max form
                     % gets updated as virtual stuff changes
         
@@ -292,12 +301,12 @@ classdef SignalData < handle
             % first signal is always time
             siglist = {'Time'};
             for i=1:obj.nsigs
-                siglist{i} = obj.header.recChNames{i};
+                siglist{end+1} = obj.header.recChNames{i};
             end
             % for virtual signals, append the filter name
             for i=1:obj.nvsigs
                 for j=1:obj.nsigs
-                    siglist{i*obj.nsigs+j} = sprintf('%s (%s)',obj.vnames{i},siglist{j});
+                    siglist{end+1} = sprintf('%s (%s)',obj.vnames{i},siglist{j});
                 end
             end
         end

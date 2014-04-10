@@ -1,25 +1,77 @@
 classdef CrampFit < handle
-    %CRAMPFIT Analysis suite for streaming signal data
+    %CRAMPFIT: Analysis suite for streaming signal data
+    %
+    % CRAMPFIT Methods:
+    %   CrampFit(fname) - Starts CrampFit. Filename can be empty, a
+    %       filename, or a directory where your files are stored.
+    %   loadFile(fname) - Loads a file, if it can find it. If IV curve is
+    %       selected, forwards to plot_iv. Creates default signal panels.
+    %
+    %   setKeyboardCallback(fun) - Sets the keyboard callback function for
+    %       user code. fun should take one argument, a struct, containing
+    %       the key information.
+    %   waitKey() - Blocks until a key is pressed. Returns character of the
+    %       key (not a struct), eg 'k'.
+    %
+    %   addSignalPanel(sigs) - Add a signal panel, at the bottom, that
+    %       displays the signals specified in sigs. Can be [].
+    %   removeSignalPanel(pan) - Remove signal panel indexed by pan
+    %   setSignalPanel(pan,sigs) - Sets pan to display signals sigs.
+    %
+    %   getAxes(pan) - Get the axes object handle for a given panel
+    %   clearAxes() - Clear all user-drawn objects from all axes
+    %
+    %   autoscaleY() - Rescale Y-axes on all panels
+    %
+    %   getCursors() - Return cursor positions, or [] if hidden
+    %   setCursors(trange) - Sets cursor positions and makes them visible
+    %   toggleCursors() - Toggles visibility of cursors
+    %
+    %   refresh() - Redraws all plot displays.
+    %   getView() - Returns time range visible in window.
+    %   setView(trange) - Sets visible time range (clipping appropriately) and redraws.
+    %
+    % CRAMPFIT Properties:
+    %   data - Internal SignalData class, or [] if not loaded
+    %   fig - Handle to figure object of program
+    %   psigs - Struct array with signal panel information. Click for more.
     
     properties
-        data
-        fig
-        panels
-        xaxes
-        cursors
-        ctext
+        data        % Internal SignalData class, or [] if not loaded
+        fig         % Handle to figure object
+        % psigs - Struct array containing information about signal panels,
+        %       as well as some internally defined helper functions.
+        %   
+        %   psigs(i).sigs - List of signals to display.
+        %   psigs(i).axes - Axes object displaying signals
+        %   psigs(i).setY(yrange) - Sets y-axis.
+        %   psigs(i).getY() - Gets y-axis.
+        %   psigs(i).resetY() - Autoscales y intelligently to look nice.
+        %   psigs(i).shiftY(scale,offset) - Scales and moves y-axis. Offset
+        %       is in units of the current y-range.
+        %   
+        %   There are some others that should not be important.
         psigs
-        
-        hcmenu
-        sigmenus
-        cursig
     end
-    properties
-        DEFS
+    properties (Hidden=true)
+        DEFS        % UI definitions (widths etc.)
+        
+        panels      % Main window panel handle struct
+        xaxes       % x-axis object
+        cursors     % Main window cursor object (blue arrow thingies)
+        ctext       % Cursor display text handle
+
+        hcmenu      % Handle to context menu
+        sigmenus    % Handles to all the add/remove signal menus
+        cursig      % Most recent signal clicked
     end
     
     methods
         function obj = CrampFit(fname)
+            % cf = CRAMPFIT() - Create a new default instance of CrampFit
+            % cf = CRAMPFIT(filename) - Start by loading specified file
+            % cf = CRAMPFIT(directory) - Start in a directory (for open file dialog)
+            
             % some UI defs
             obj.DEFS = [];
             obj.DEFS.LEFTWID        = 60;
@@ -69,6 +121,9 @@ classdef CrampFit < handle
             c = uimenu('Label','Cursors');
             uimenu(c,'Label','Bring','Callback',@(~,~) obj.bringCursors());
             uimenu(c,'Label','Show/Hide','Callback',@(~,~) obj.toggleCursors());
+            hm = uimenu('Label','Help');
+            uimenu(hm,'Label','SignalData','Callback',@(~,~) doc('SignalData'));
+            uimenu(hm,'Label','CrampFit','Callback',@(~,~) doc('CrampFit'));
             
             % and the context menus
             obj.hcmenu = uicontextmenu();
@@ -76,7 +131,6 @@ classdef CrampFit < handle
             
             sa = uimenu(obj.hcmenu,'Label','Add Signal');
             st = uimenu(obj.hcmenu,'Label','Set Signal');
-            sr = uimenu(obj.hcmenu,'Label','Remove Signal');
             snew = uimenu(obj.hcmenu,'Label','Add Panel','Separator','on',...
                 'Callback',@(~,~) obj.addSignalPanel(obj.psigs(obj.cursig).sigs));
             srem = uimenu(obj.hcmenu,'Label','Remove Panel',...
@@ -86,12 +140,6 @@ classdef CrampFit < handle
             function addsig(sig)
                 % append sig to the list of this signal panel's signals
                 obj.psigs(obj.cursig).sigs = [obj.psigs(obj.cursig).sigs sig];
-                % and redraw
-                obj.refresh();
-            end
-            function setsig(sig)
-                % set the only signal to the one we selected
-                obj.psigs(obj.cursig).sigs = sig;
                 % and redraw
                 obj.refresh();
             end
@@ -106,15 +154,15 @@ classdef CrampFit < handle
                 
                 obj.sigmenus = [];
                 % create the menus
-                for i=1:length(slist)
+                for i=2:length(slist)
                     obj.sigmenus(end+1) = uimenu(sa,'Label',slist{i});
-                    set(obj.sigmenus(end),'Callback',@(~,~) addsig(i+1));
+                    set(obj.sigmenus(end),'Callback',@(~,~) addsig(i));
                 end
                 
                 % and to set
-                for i=1:length(slist)
+                for i=2:length(slist)
                     obj.sigmenus(end+1) = uimenu(st,'Label',slist{i});
-                    set(obj.sigmenus(end),'Callback',@(~,~) setsig(i+1));
+                    set(obj.sigmenus(end),'Callback',@(~,~) obj.setSignalPanel(obj.cursig,i));
                 end
             end
             
@@ -241,40 +289,13 @@ classdef CrampFit < handle
             end
         end
         
-        % loads the specified file, and initializes the signal panels
-        function loadFile(obj, fname)
-            % attempt to load data
-            d = SignalData(fname);
-            
-            if d.ndata < 0
-                if (d.ndata == -2)
-                    disp('IV curve found, attempting load...');
-                    plot_iv(fname);
-                end
-                return
-            end
-            % set internal data
-            obj.data = d;
-            
-            % first, delete all panels
-            while ~isempty(obj.psigs)
-                obj.removeSignalPanel();
-            end
-            % then, create right number of panels
-            for i=1:obj.data.nsigs
-                obj.addSignalPanel(i+1);
-            end
-            
-            % and reset view
-            obj.setView();
-            
-            % and cursors
-            obj.setCursors(obj.getView());
-            obj.toggleCursors();
-        end
-
-        % Creates mouse callback interface, by defining a ton of fns
+    end
+    
+    methods (Hidden = true)
         function setMouseCallbacks(obj)
+            % obj.SETMOUSECALLBACKS()
+            %   Creates mouse callback interface, by defining a ton of fns
+            
             % point-rectangle hit test utility function
             function b = isIn(pos,p)
                 b = false;
@@ -499,9 +520,56 @@ classdef CrampFit < handle
             set(obj.fig,'WindowScrollWheelFcn',@scrollCallback);
             set(obj.fig,'WindowButtonDownFcn',@mouseDown);
         end
+    end     
         
-        % and let the outside user set the keyboard behavior
+        
+        
+        
+        
+        
+    methods (Hidden = false)
+
+        function loadFile(obj, fname)
+            % obj.LOADFILE(filename)
+            %   Loads the specified file, and initializes the signal panels
+            
+            % attempt to load data
+            d = SignalData(fname);
+            
+            if d.ndata < 0
+                if (d.ndata == -2)
+                    disp('IV curve found, attempting load...');
+                    plot_iv(fname);
+                end
+                return
+            end
+            % set internal data
+            obj.data = d;
+            
+            % first, delete all panels
+            while ~isempty(obj.psigs)
+                obj.removeSignalPanel();
+            end
+            % then, create right number of panels
+            for i=1:obj.data.nsigs
+                obj.addSignalPanel(i+1);
+            end
+            
+            % and reset view
+            obj.setView();
+            
+            % and cursors
+            obj.setCursors(obj.getView());
+            obj.toggleCursors();
+        end
+        
         function setKeyboardCallback(obj, fun)
+            % obj.SETKEYBOARDCALLBACK(fun)
+            %   CrampFit will call fun whenever a key is pressed (except
+            %   for default keys). The function should take a single
+            %   argument, which is a Matlab keyboard event struct with
+            %   fields e.Characer, e.Key, e.Modifier.
+            
             % define our own internal keyboard function
             function keyboardFcn(~,e)
                 if e.Character == 'a'
@@ -509,9 +577,11 @@ classdef CrampFit < handle
                     for i=1:length(obj.psigs)
                         obj.psigs(i).resetY();
                     end
+                    return
                 end
                 if e.Character == 'c'
                     obj.toggleCursors();
+                    return
                 end
                 if strcmp(e.Key,'escape')
                     delete(obj.fig);
@@ -531,8 +601,11 @@ classdef CrampFit < handle
             set(obj.fig,'WindowKeyPressFcn',@keyboardFcn);
         end
         
-        % or, we can do blocking waits on key presses
         function k = waitKey(obj)
+            % k = obj.WAITKEY()
+            %   Blocks until a (non-builtin) key is pressed. Returns the
+            %   key character only (eg. 'k').
+            
             % wait for uiresume event
             uiwait(obj.fig);
             
@@ -540,8 +613,11 @@ classdef CrampFit < handle
             k = get(obj.fig,'CurrentCharacter');
         end
         
-        % adding and removing signal panels...
         function addSignalPanel(obj, sigs)
+            % obj.addSignalPanel(sigs)
+            %   Add a new signal panel at the bottom with the specified
+            %   signals (can be []).
+            
             % make a new one at the end
             i = length(obj.psigs)+1;
             if (i==1)
@@ -564,33 +640,56 @@ classdef CrampFit < handle
             % autoset the y-limits
             obj.psigs(i).resetY();
         end
-        function removeSignalPanel(obj, sig)
+        
+        function removeSignalPanel(obj, pan)
+            % obj.removeSignalPanel()
+            % obj.removeSignalPanel(pan)
+            %   Remove the specified signal panel, or the bottommost one.
+            %   Cannot remove all of them.
+            
             % just remove the topmost one if none specified
             if (nargin < 2)
-                sig = 1;
+                pan = 1;
             end
             % already deleted all of them
             if isempty(obj.psigs) || (nargin == 2 && length(obj.psigs)==1)
                 return
             end
             % otherwise, delete the panel object
-            delete(obj.psigs(sig).panel);
+            delete(obj.psigs(pan).panel);
             % and remove it from the array
-            obj.psigs = obj.psigs((1:length(obj.psigs))~=sig);
+            obj.psigs = obj.psigs((1:length(obj.psigs))~=pan);
             % and resize!
             obj.sizeSignalPanels();
         end
+        function setSignalPanel(obj, pan, sigs)
+            % obj.setSignalPanel(pan,sigs)
+            %   Set the specified signal panel to have signal sigs.
+            
+            obj.psigs(pan).sigs = sigs;
+            obj.refresh();
+        end
+        
+    end
+    
+    methods (Hidden=true)
+        
         function sizeSignalPanels(obj)
-            % this guy just sets the sizes of the panels
+            % obj.sizeSignalPanels()
+            %   Set the sizes of the panels on the screen to be evenly
+            %   split vertically. Internal function.
             np = length(obj.psigs);
             for i=1:np
                 set(obj.psigs(i).panel,'Position',[0 (np-i)/np 1 1/np]);
             end
         end
         
-        % this makes a single panel. positioning/tiling has to be taken
-        % care of externally after creation
         function sig = makeSignalPanel(obj)
+            % sig = obj.makeSignalPanel()
+            %   This makes a single panel. Positioning/tiling is taken
+            %   care of externally after creation. Returns a struct
+            %   containing handles and view functions.
+        
             % create and ultimately return a struct containing panel info
             sig = [];
             
@@ -727,13 +826,21 @@ classdef CrampFit < handle
             resizeFcn
         end
         
-        % returns handle to specified axes
+    end
+    
+    methods
+
         function h = getAxes(obj, ind)
+            % h = obj.getAxes(panel)
+            %   Returns a handle to the axes object on a particular signal
+            %   panel, so user can draw on it.
             h = obj.psigs(ind).axes;
         end
         
-        % clears all user-added objects from axes
         function clearAxes(obj)
+            % obj.clearAxes()
+            %   Clears all user-added objects from all axes.
+            
             for i=1:length(obj.psigs)
                 % find objects with empty tags, and kill them
                 hs = findobj(obj.psigs(i).axes,'Tag','');
@@ -741,25 +848,30 @@ classdef CrampFit < handle
             end
         end
         
-        % autoscales y-axes
         function autoscaleY(obj)
+            % obj.autoscaleY()
+            %   Autoscales y-axes in all panels, ignoring user-drawn
+            %   objects.
+            
             for i=1:length(obj.psigs)
                 obj.psigs(i).resetY();
             end
         end
         
-        % bring cursors to view window
         function bringCursors(obj)
-            % bring cursors
+            % obj.bringCursors()
+            %   Brings cursors to the view window and makes them visible.
+            
             xlim = obj.getView();
             xm = mean(xlim);
             xlim = xm+0.5*(xlim-xm);
             obj.setCursors(xlim);
         end
         
-        % toggle cursor visibility
         function toggleCursors(obj)
-            % toggle cursor visibility
+            % obj.toggleCursors()
+            %   Toggle cursor visibility
+            
             cvis = get(obj.cursors(1),'Visible');
             if strcmp(cvis,'on')
                 set(obj.cursors,'Visible','off');
@@ -768,8 +880,10 @@ classdef CrampFit < handle
             end
         end
         
-        % positions of the cursors
         function curs = getCursors(obj)
+            % curs = obj.getCursors()
+            %   Gets cursor positions, or [] if they are not visible.
+            
             % return empty if they're invisible
             if strcmp(get(obj.cursors(1),'Visible'),'off')
                 curs = [];
@@ -785,8 +899,10 @@ classdef CrampFit < handle
             curs = sort(curs);
         end 
         
-        % set cursor positions
         function setCursors(obj, curs)
+            % obj.setCursors(curs)
+            %   Set cursor positions and make them visible.
+
             curs = sort(curs);
             for i=1:2
                 set(obj.cursors(i),'XData',[curs(i) curs(i)],'Visible','on');
@@ -805,18 +921,25 @@ classdef CrampFit < handle
             set(obj.ctext,'String',sprintf(get(obj.ctext,'Tag'),dt,s));
         end 
         
-        % just refresh the view
         function refresh(obj)
+            % obj.refresh()
+            %   Just refresh the view and force a redraw.
+            
             obj.setView(obj.getView());
         end
         
-        % returns x-limits of current screen
         function xlim=getView(obj)
+            % xlim = obj.getView()
+            %   Returns x-limits of current screen.
+            
             xlim = get(obj.xaxes,'XLim');
         end
         
-        % sets the x-limits (with bounding, of course)
         function setView(obj,rng)
+            % obj.setView(xlim)
+            %   Sets the x-limits (with bounding, of course). Also
+            %   reloads/redraws everything.
+            
             % if we don't have anything loaded, get outta here
             if isempty(obj.data)
                 return

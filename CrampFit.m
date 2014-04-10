@@ -47,8 +47,17 @@ classdef CrampFit < handle
             
             % how we load a new file
             function openFileFcn(~,~)
+                % check if we've loaded a file yet
+                fn = '';
+                if ~isempty(obj.data)
+                    % if we did, let's use that filename
+                    fn = obj.data.filename;
+                elseif ~isempty(fname)
+                    % were we passed a directory, not file?
+                    fn = fname;
+                end
                 % get a filename from dialog box
-                [FileName,PathName] = uigetfile('*.abf');
+                [FileName,PathName] = uigetfile('*.abf','CrampFit',fn);
                 % and load (or attempt to)
                 obj.loadFile([PathName FileName]);
             end
@@ -221,10 +230,12 @@ classdef CrampFit < handle
             % and a dummy keyboard callback
             obj.setKeyboardCallback(@(e) []);
             
-            % load data if we were called with a filename
-            % this also creates default signal panels
+            % create a blank signal panel and blank data
             obj.data = [];
             obj.addSignalPanel([]);
+            
+            % load data if we were called with a filename
+            % this also creates default signal panels
             if (nargin > 0)
                 obj.loadFile(fname);
             end

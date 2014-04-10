@@ -4,7 +4,7 @@ function cf = cf_launch(fname)
     if (nargin > 0)
         cf = CrampFit(fname);
     else
-        cf = CrampFit();
+        cf = CrampFit('C:\Axon\Nanopores');
     end
     
     % variable to hold the ranges we are trimming

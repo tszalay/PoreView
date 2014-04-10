@@ -9,6 +9,7 @@ classdef SignalData < handle
     %   addVirtualSignal(fun,name,srcs) - Add a virtual signal function
     %   getSignalList() - Get names of all accessible signals
     %   findNext(fun,istart) - Find next instance of logical 1
+    %   findPrev(fun,istart) - Find previous instance of logical 1
     
     % make it so these don't get screwed up
     properties (SetAccess=immutable)
@@ -338,6 +339,46 @@ classdef SignalData < handle
                 end
                 
                 istart = istart + maxPts;
+            end
+        end
+        
+        function ind = findPrev(obj,fun,istart)
+            % ind = obj.findPrev(fun)
+            % ind = obj.findPrev(fun, istart)
+            %   Finds previous instance of logical 1, starting at index, if
+            %   specified.
+            
+            % we don't need to specify istart
+            if (nargin < 3)
+                istart = obj.ndata;
+            end
+            
+            % number of points to step by, hard-coded for now
+            maxPts = 1e5;
+            
+            % loop and find next index of a logical 1
+            while 1
+                i0 = istart-maxPts;
+                d = obj.get(i0:istart);
+                
+                % check if we have hit the end of the file?
+                if isempty(d)
+                    % then give up and cry
+                    ind = -1;
+                    return
+                end
+                
+                % find the index! (if we have one)
+                ind = find(fun(d),1,'last');
+                
+                % did we find a logical 1?
+                if ~isempty(ind)
+                    % shift index and return it
+                    ind = ind + i0 - 1;
+                    return
+                end
+                
+                istart = istart - maxPts;
             end
         end
         

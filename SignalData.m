@@ -372,7 +372,7 @@ classdef SignalData < handle
             % for virtual signals, append the filter name
             for i=1:obj.nvsigs
                 for j=1:obj.nsigs
-                    siglist{end+1} = sprintf('%s (%s)',obj.vnames{i},siglist{j});
+                    siglist{end+1} = sprintf('%s (%s)',obj.vnames{i},siglist{j+1});
                 end
             end
         end

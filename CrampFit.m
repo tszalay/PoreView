@@ -113,6 +113,12 @@ classdef CrampFit < handle
             obj.fig = figure('Name','CrampFit','MenuBar','none',...
                 'NumberTitle','off','DockControls','off');
             
+            % set its position
+            oldunits = get(obj.fig,'Units');
+            set(obj.fig,'Units','normalized');
+            set(obj.fig,'Position',[0.1,0.1,0.8,0.8]);
+            set(obj.fig,'Units',oldunits);
+            
             % Build a new color map
             CO = [  0.0 0.2 0.7;...
                     0.0 0.5 0.0;...
@@ -122,16 +128,19 @@ classdef CrampFit < handle
                     0.6 0.6 0.3  ];
 
             % Set the color order 
-            set(obj.fig, 'DefaultAxesColorOrder', CO); 
+            set(obj.fig, 'DefaultAxesColorOrder', CO);
+            
+            if nargin == 0
+                fname = '';
+            end
             
             % how we load a new file
             function openFileFcn(~,~)
                 % check if we've loaded a file yet
-                fn = '';
                 if ~isempty(obj.data)
                     % if we did, let's use that filename
                     fn = obj.data.filename;
-                elseif ~isempty(fname)
+                else
                     % were we passed a directory, not file?
                     fn = fname;
                 end

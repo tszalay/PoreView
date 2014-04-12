@@ -107,10 +107,13 @@ classdef SignalData < handle
         cend        % endpoint of loaded cached data
         dcache      % cached data that we're working with
         
-        nvsigs      % how many virtual signals?
+        nvsigs      % how many virtual signals? this is the total number (incl. multiple outputs)
+                    % such that data has 1 + nsigs + nvsigs columns
+                    
         vnames      % cell array names of virtual signals
         vfuns       % cell array functions for virtual signals
-        vsrcs       % cell arr, which columns get processed by each one
+        vsrcs       % cell array, which columns get processed by each one
+        vdsts       % cell array, which columns get written to
     end
     
     methods
@@ -334,15 +337,23 @@ classdef SignalData < handle
                 end
             end
             
+            % how many new signals are we adding?
+            nadd = length(src) - 1;
+            
             % check if this one exists already, if we were given a name
             if nargin > 2 && any(ismember(obj.vnames, name))
                 i = find(ismember(obj.vnames, name),1);
+                % if it exists, we keep the destination the same
+                dst = obj.vdsts{i};
             else
                 % or add a new one
-                obj.nvsigs = obj.nvsigs + 1;
-                i = obj.nvsigs;
+                i = length(obj.vnames) + 1;
+                obj.nvsigs = obj.nvsigs + nadd;
+                % dst is the last nadd columns
+                dst = (-nadd+1:0) + obj.nvsigs + obj.nsigs + 1;
             end
             
+            % if no name given, make one up
             if (nargin < 3)
                 name = sprintf('Virtual %d',i);
             end
@@ -350,12 +361,10 @@ classdef SignalData < handle
             obj.vnames{i} = name;
             obj.vfuns{i} = fun;
             obj.vsrcs{i} = src;
+            obj.vdsts{i} = dst;
             
             % and now that we've added it, make sure reduced and cached data's good
             obj.updateVirtualData(true);
-            
-            % and return the output signals
-            dst = 1+obj.nsigs*i+(1:obj.nsigs);
         end
                
         
@@ -370,9 +379,10 @@ classdef SignalData < handle
                 siglist{end+1} = obj.header.recChNames{i};
             end
             % for virtual signals, append the filter name
-            for i=1:obj.nvsigs
-                for j=1:obj.nsigs
-                    siglist{end+1} = sprintf('%s (%s)',obj.vnames{i},siglist{j+1});
+            for i=1:length(obj.vnames)
+                src = obj.vsrcs{i};
+                for j=src(2:end)
+                    siglist{end+1} = sprintf('%s (%s)',obj.vnames{i},siglist{j});
                 end
             end
         end
@@ -501,7 +511,7 @@ classdef SignalData < handle
                 %fprintf('Loaded %d points (%d-%d) into the cache\n   ',size(obj.dcache,1),floor(obj.cstart),floor(obj.cend));
                 
                 % make empty cache
-                obj.dcache = zeros(size(d,1),1+obj.nsigs*(1+obj.nvsigs));
+                obj.dcache = zeros(size(d,1),1 + obj.nsigs + obj.nvsigs);
                 
                 % add time data on to cache, as first col
                 npts = size(obj.dcache,1);
@@ -529,7 +539,7 @@ classdef SignalData < handle
                 % set original reduced data aside
                 d = obj.datared(:,1:obj.nsigs+1);
                 % make the new one
-                obj.datared = zeros(obj.nred, 1+obj.nsigs*(obj.nvsigs+1));
+                obj.datared = zeros(obj.nred, 1+obj.nsigs+obj.nvsigs);
                 % set the originals
                 obj.datared(:,1:obj.nsigs+1) = d;
             end
@@ -537,14 +547,14 @@ classdef SignalData < handle
             % do the same with the cache
             if ~isempty(obj.dcache)
                 d = obj.dcache(:,1:obj.nsigs+1);
-                obj.dcache = zeros(size(obj.dcache,1), 1+obj.nsigs*(obj.nvsigs+1));
+                obj.dcache = zeros(size(obj.dcache,1), 1+obj.nsigs+obj.nvsigs);
                 obj.dcache(:,1:obj.nsigs+1) = d;
             end
 
             % and apply virtual signal functions to cached and reduced data
-            for i=1:obj.nvsigs
+            for i=1:length(obj.vnames)
                 % which columns to write to?
-                dst = 1+obj.nsigs*i+(1:obj.nsigs);
+                dst = obj.vdsts{i};
                 % and which to read from
                 src = obj.vsrcs{i};
                 fun = obj.vfuns{i};
@@ -553,11 +563,11 @@ classdef SignalData < handle
                     % just a check to make sure we get the right number
                     % of columns from the virtual functions
                     A = fun(obj.dcache(:,src));
-                    obj.dcache(:,dst) = A(:,(end-obj.nsigs+1):end);
+                    obj.dcache(:,dst) = A(:,(end-length(dst)+1):end);
                 end
                 if (dored)
                     A = fun(obj.datared(:,src));
-                    obj.datared(:,dst) = A(:,(end-obj.nsigs+1):end);
+                    obj.datared(:,dst) = A(:,(end-length(dst)+1):end);
                 end
             end
         end

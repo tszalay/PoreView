@@ -47,7 +47,7 @@ function cf = cf_launch()
             % subselected data filter
             f_rm = cf.data.addVirtualSignal(@(d) filt_rmrange(d,ranges),'Range-edited');
             % high pass acts on subselected data
-            f_hp = cf.data.addVirtualSignal(@(d) filt_hp(d,4,100),'High-pass',f_rm);
+            f_hp = cf.data.addVirtualSignal(@(d) filt_hp(d,4,200),'High-pass',f_rm);
             % tell median to act on high-passed data
             f_med = cf.data.addVirtualSignal(@(d) filt_med(d,15),'Median',f_hp);
             

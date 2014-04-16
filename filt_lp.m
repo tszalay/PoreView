@@ -9,8 +9,8 @@ function [ filtdata ] = filt_lp( data, n, wp )
     si = data(2,1)-data(1,1);
 
     % convert from absolute frequency to 'normalized frequency'
-    % which has units of pi radians / sample
-    wn = wp*si/pi;
+    % which is 0 at 0 and 1 at Nyquist freq 1/(2*si)
+    wn = 2*wp*si;
 
     % create the filter coefficients
     [b a] = butter(n, wn, 'low');

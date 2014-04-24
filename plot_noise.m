@@ -1,18 +1,22 @@
-function plot_noise(sigdata, trange)
+function plot_noise(sigdata, trange, sigs)
 %PLOT_NOISE Makes or adds to existing noise plot
 %   plot_noise(sigdata, trange)
 %   Takes a SignalData object and a time range as input, uses the same
 %   algorithm as ClampFit (I think).
+
+    if (nargin < 3)
+        sigs = 1+(1:sigdata.nsigs);
+    end
 
     % do same thing as ClampFit does - average spectral segs
     % ClampFit does 2*65536 pts per seg
     % get start and end index
     irange = floor(trange/sigdata.si);
     
-    fftsize = 2*655356;
+    fftsize = 2*65536;
 
     % only process real signals
-    dfft = zeros(fftsize,sigdata.nsigs);
+    dfft = zeros(fftsize,length(sigs));
     % number of frames
     nframes = 0;
     
@@ -20,7 +24,7 @@ function plot_noise(sigdata, trange)
     
     for ind=irange(1):fftsize:irange(2)
         % get only the real signals
-        d = sigdata.get(ind:ind+fftsize-1,1+(1:sigdata.nsigs));
+        d = sigdata.get(ind:ind+fftsize-1,sigs);
         % quit if we don't have enough points
         if size(d,1) < fftsize
             break

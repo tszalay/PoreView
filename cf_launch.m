@@ -18,7 +18,37 @@ function cf = cf_launch()
         
         % to figure out what the keys are called, uncomment this line
         %disp(e);
+        function d=fakeevent(d)
+                inds = find(and(d(:,1) > 1.0, d(:,1) < 1.00005));
+                d(inds,2:end) = d(inds,2:end) + 0.05;
+        end
         
+        function d=lpfwd(d)
+            si = d(2,1)-d(1,1);
+            wn = 2*1*si;    
+            if (wn > 1)
+                return
+            end
+            [b a] = butter(2, wn, 'low');
+            for i=2:size(d,2)
+                m = mean(d(:,i));
+                d(:,i) = filter(b,a,d(:,i));
+            end
+        end
+        
+        function d=medfwd(d)
+            d = filt_med(d,13);
+            d(:,2:end) = circshift(d(:,2:end),[7,1]);
+        end
+        
+        function d=cusum(d)
+            S = 0;
+            for i=1:size(d,1)
+                S = max(0,S+d(i,3)-d(i,2)-0.01);
+                d(i,3) = S;
+            end
+        end
+            
         if strcmp(e.Character,'k')
             % remove a range of points between cursors
             xlim = cf.getCursors();
@@ -44,19 +74,20 @@ function cf = cf_launch()
         elseif strcmp(e.Character,'f')
             % create the requisite virtual signals
             
-            % subselected data filter
-            f_rm = cf.data.addVirtualSignal(@(d) filt_rmrange(d,ranges),'Range-edited');
-            % high pass acts on subselected data
-            f_hp = cf.data.addVirtualSignal(@(d) filt_hp(d,4,200),'High-pass',f_rm);
-            % tell median to act on high-passed data
-            f_med = cf.data.addVirtualSignal(@(d) filt_med(d,15),'Median',f_hp);
+            
+            
+            ff = cf.data.addVirtualSignal(@fakeevent,'Fake');
+            fl = cf.data.addVirtualSignal(@lpfwd,'LP',ff);
+            fc = cf.data.addVirtualSignal(@cusum,'Cusum',[fl ff]);
+            %cf.data.addVirtualSignal(@(d) medfwd(lpfwd(d)),'LP->Med',ff);
+            %cf.data.addVirtualSignal(@(d) lpfwd(medfwd(d)),'Med->LP',ff);
             
             % also set which signals to draw in each panel, you can play
             % with this all you like
-            cf.setSignalPanel(1, f_rm(1));
+            %cf.setSignalPanel(1, f_rm(1));
             
             % draw both median-filtered panels
-            cf.addSignalPanel(f_med);
+            %cf.addSignalPanel(f_med);
 
             disp('Filters added')
         
@@ -70,7 +101,7 @@ function cf = cf_launch()
                 tr = cf.getView();
             end
             % then make a noise plot
-            plot_noise(cf.data,tr);
+            plot_noise(cf.data,tr,[cf.psigs.sigs]);
         end
     end
 

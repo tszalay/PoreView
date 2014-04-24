@@ -17,15 +17,20 @@ function cf = cf_launch()
         end
         
         % to figure out what the keys are called, uncomment this line
-        %disp(e);
         function d=fakeevent(d)
-                inds = find(and(d(:,1) > 1.0, d(:,1) < 1.00005));
-                d(inds,2:end) = d(inds,2:end) + 0.05;
+                inds = find(and(d(:,1) > 1.0, d(:,1) < 1.0001));
+                d(inds,2:end) = d(inds,2:end) + 0.1;
+                % also create some fake noise
+                n = randn(size(d,1),1);
+                nf = fft(n);
+                nf = nf./sqrt(1:length(nf))';
+                n = fft(nf)/length(nf);
+                d(:,2) = d(:,2) + 10*real(n);
         end
         
         function d=lpfwd(d)
             si = d(2,1)-d(1,1);
-            wn = 2*1*si;    
+            wn = 2*500*si;    
             if (wn > 1)
                 return
             end
@@ -44,7 +49,8 @@ function cf = cf_launch()
         function d=cusum(d)
             S = 0;
             for i=1:size(d,1)
-                S = max(0,S+d(i,3)-d(i,2)-0.01);
+                S = max(0,S+d(i,3)-d(i,2)-0.07);
+                d(i,2) = d(i,3)-d(i,2);
                 d(i,3) = S;
             end
         end

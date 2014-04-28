@@ -85,7 +85,6 @@ function [d,si,h]=abfload(fn,varargin)
 % -------------------------------------------------------------------------
 %                       PART 1: check of input vars
 % -------------------------------------------------------------------------
-disp(['** ' mfilename])
 % --- defaults   
 % gap-free
 start=0.0;
@@ -111,6 +110,10 @@ else
  pvpmod(varargin);
 end
 
+if verbose
+ disp(['** ' mfilename])
+end
+
 % some constants
 BLOCKSIZE=512;
 % output variables
@@ -130,7 +133,9 @@ end
 % -------------------------------------------------------------------------
 %                       PART 2a: determine abf version
 % -------------------------------------------------------------------------
-disp(['opening ' fn '..']); 
+if verbose
+ disp(['opening ' fn '..']); 
+end
 [fid,messg]=fopen(fn,'r',machineF); 
 if fid == -1,
  error(messg);
@@ -432,7 +437,9 @@ end
 % -------------------------------------------------------------------------
 switch h.nOperationMode
  case 1
-   disp('data were acquired in event-driven variable-length mode');
+   if verbose
+    disp('data were acquired in event-driven variable-length mode');
+   end
    if h.fFileVersionNumber>=2.0
      errordlg('abfload currently does not work with data acquired in event-driven variable-length mode and ABF version 2.0','ABF version issue');
    else
@@ -610,7 +617,9 @@ switch h.nOperationMode
    end
 
  case 3
-   disp('data were acquired in gap-free mode');
+   if verbose
+    disp('data were acquired in gap-free mode');
+   end
    % from start, stop, headOffset and h.fADCSampleInterval calculate first point to be read 
    %  and - unless stop is given as 'e' - number of points
    startPt=floor(1e6*start*(1/h.fADCSampleInterval));

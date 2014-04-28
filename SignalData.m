@@ -507,7 +507,9 @@ classdef SignalData < handle
                 
                 % load file, add in a 'cheat point' at the end just to make
                 % sure we get everything
-                [~, d] = evalc('abfload(obj.filename,''start'',obj.cstart*obj.si,''stop'',(obj.cend+1)*obj.si);');
+                d = abfload(obj.filename,'start',obj.cstart*obj.si,'stop',...
+                    (obj.cend+1)*obj.si,'verbose',0);
+                %[~, d] = evalc('abfload(obj.filename,''start'',obj.cstart*obj.si,''stop'',(obj.cend+1)*obj.si);');
                 %fprintf('Loaded %d points (%d-%d) into the cache\n   ',size(obj.dcache,1),floor(obj.cstart),floor(obj.cend));
                 
                 % make empty cache

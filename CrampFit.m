@@ -145,7 +145,7 @@ classdef CrampFit < handle
                     fn = fname;
                 end
                 % get a filename from dialog box
-                [FileName,PathName] = uigetfile('*.abf','CrampFit',fn);
+                [FileName,PathName] = uigetfile('*.abf;*.cbf','CrampFit',fn);
                 % and load (or attempt to)
                 obj.loadFile([PathName FileName]);
             end

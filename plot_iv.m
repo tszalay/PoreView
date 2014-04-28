@@ -8,14 +8,20 @@ function [Vs, Is] = plot_iv(filename)
 
     try
         % try to load the entire file
-        [d,si,h]=abfload(filename);
+        if filename(end-2) == 'a'
+            [d,~,h]=abfload(filename);
+        else
+            [d,h]=cbfload(filename);
+            % permute it to match abf
+            d = permute(d,[2 3 1]);
+        end
     catch
         fprintf(2,'Failed to load file %s as I-V!\n',filename);
         return
     end
 
     % check if it's an IV curve
-    if (h.lSynchArraySize == 0)
+    if (numel(size(d)) ~= 3)
         fprintf(2,'%s is not an IV curve.\n',filename);
         return
     end
@@ -24,6 +30,9 @@ function [Vs, Is] = plot_iv(filename)
     
     % make the voltages
     Vs = linspace(-200,200,sz(3))';
+    if isfield(h,'setVoltages')
+        Vs = h.setVoltages';
+    end
     
     % how much of the data do we want to use?
     % start with last 1/4, for now

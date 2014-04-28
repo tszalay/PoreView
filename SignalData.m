@@ -129,7 +129,11 @@ classdef SignalData < handle
             % try to load file, see if we got it right
             try
                 % first, load some info on the file
-                [~,si,h]=abfload(obj.filename,'info');
+                if obj.filename(end-2) == 'a'
+                    [~,~,h]=abfload(obj.filename,'info');
+                else
+                    [~,h]=cbfload(obj.filename,'info');
+                end
             catch
                 fprintf(2,'Failed to load file %s!\n',obj.filename);
                 obj.ndata = -1;
@@ -138,7 +142,13 @@ classdef SignalData < handle
             
             % check if it's an IV curve, and cry if it is
             try
-                if h.lSynchArraySize > 0
+                % abf version
+                if isfield(h,'lSynchArraySize') && h.lSynchArraySize > 0
+                    obj.ndata = -2;
+                    return
+                end
+                % cbf version
+                if isfield(h,'type') && ~strcmp(h.type,'Continuous')
                     obj.ndata = -2;
                     return
                 end
@@ -154,13 +164,26 @@ classdef SignalData < handle
             obj.vsrcs = {};
             
             obj.header = h;
-            obj.si = si*1e-6;
-            % knock a couple points off the end, just to prevent
-            % bizarre off-by-one errors...?
-            obj.ndata = h.dataPtsPerChan - 2;
-            obj.tstart = 0; % dunno how to get actual start from abf
-            obj.tend = obj.si*(obj.ndata-1);
-            obj.nsigs = h.nADCNumChannels;
+            
+            if ~isfield(h,'type')
+                % abf version
+                
+                obj.si = h.si*1e-6;
+                % knock a couple points off the end, just to prevent
+                % bizarre off-by-one errors...?
+                obj.ndata = h.dataPtsPerChan - 2;
+                obj.tstart = 0; % dunno how to get actual start from abf
+                obj.tend = obj.si*(obj.ndata-1);
+                obj.nsigs = h.nADCNumChannels;
+            else
+                % cbf version
+                
+                obj.si = h.si;
+                obj.ndata = h.numPts - 2;
+                obj.tstart = 0;
+                obj.tend = obj.si*(obj.ndata-1);
+                obj.nsigs = h.numChan;
+            end
             
             % set cache to default values
             obj.cstart = 0;
@@ -376,7 +399,11 @@ classdef SignalData < handle
             % first signal is always time
             siglist = {'Time'};
             for i=1:obj.nsigs
-                siglist{end+1} = obj.header.recChNames{i};
+                if isfield(obj.header,'recChNames')
+                    siglist{end+1} = obj.header.recChNames{i};
+                else
+                    siglist{end+1} = obj.header.chNames{i};
+                end
             end
             % for virtual signals, append the filter name
             for i=1:length(obj.vnames)
@@ -507,9 +534,14 @@ classdef SignalData < handle
                 
                 % load file, add in a 'cheat point' at the end just to make
                 % sure we get everything
-                d = abfload(obj.filename,'start',obj.cstart*obj.si,'stop',...
-                    (obj.cend+1)*obj.si,'verbose',0);
-                %[~, d] = evalc('abfload(obj.filename,''start'',obj.cstart*obj.si,''stop'',(obj.cend+1)*obj.si);');
+                if ~isfield(obj.header,'type')
+                    % abf version!
+                    d = abfload(obj.filename,'start',obj.cstart*obj.si,'stop',...
+                        (obj.cend+1)*obj.si,'verbose',0);
+                else
+                    % cbf version
+                    d = cbfload(obj.filename,[obj.cstart,(obj.cend+1)]);
+                end
                 %fprintf('Loaded %d points (%d-%d) into the cache\n   ',size(obj.dcache,1),floor(obj.cstart),floor(obj.cend));
                 
                 % make empty cache

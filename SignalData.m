@@ -201,6 +201,17 @@ classdef SignalData < handle
                 % HAVE WHEEEEEE
                 obj.nred = 5e5;
                 
+                % check if we have few enough points to not need reduced
+                % data, which is just the above value times a constant
+                if (obj.ndata < 10*obj.nred)
+                    % the rest of the program will know that this means
+                    % that there is no reduced data being used
+                    obj.nred = 0;
+                    obj.datared = [];
+                    fprintf('\nNo reduced dataset needed.\n');
+                    return;
+                end
+                
                 fprintf('\n\nBuilding reduced data with %d points -  0%%\n',obj.nred);
                 obj.datared = zeros(obj.nred,obj.nsigs+1);
  
@@ -569,7 +580,7 @@ classdef SignalData < handle
             %   Is exactly what it sounds like. Updates all of the internal
             %   virtual data, in full and reduced, if requested.
             
-            if (dored)
+            if (dored && obj.nred > 0)
                 % set original reduced data aside
                 d = obj.datared(:,1:obj.nsigs+1);
                 % make the new one
@@ -599,7 +610,7 @@ classdef SignalData < handle
                     A = fun(obj.dcache(:,src));
                     obj.dcache(:,dst) = A(:,(end-length(dst)+1):end);
                 end
-                if (dored)
+                if (dored && obj.nred > 0)
                     A = fun(obj.datared(:,src));
                     obj.datared(:,dst) = A(:,(end-length(dst)+1):end);
                 end

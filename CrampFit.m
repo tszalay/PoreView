@@ -232,7 +232,8 @@ classdef CrampFit < handle
             % make an x-axis for display porpoises only. this will need to
             % get resized correctly later, sadly :-/
             hxaxes = axes('Parent',obj.panels.Bottom,'TickDir','out',...
-                'Position',[0 1 1 0.01],'YTickLabel','','YLimMode','manual');
+                'Position',[0 1 1 0.01],'YTickLabel','',...
+                'YLimMode','manual','XLimMode','manual');
             
             obj.xaxes = hxaxes;
             
@@ -1027,8 +1028,6 @@ classdef CrampFit < handle
             
             % and replot everything
             for i=1:length(obj.psigs)
-                % get the y-limit
-                ylim = obj.psigs(i).getY();
                 % now, don't clear everything (using cla)
                 % instead, just delete the lines we drew previous
                 delete(findobj(obj.psigs(i).axes,'Tag','CFPLOT'));
@@ -1046,14 +1045,12 @@ classdef CrampFit < handle
                 % non-clickable
                 set(hps,'Tag','CFPLOT','HitTest','off');
                 % and move the plotted lines to the bottom of axes
+                % this line slows it down a bit, but oh well...
                 uistack(flipud(hps),'bottom');
 
                 if (nargin < 2)
                     % if we did setView(), reset Y
                     obj.psigs(i).resetY();
-                else
-                    % otherwise, keep it where it was
-                    obj.psigs(i).setY(ylim);
                 end
             end
         end

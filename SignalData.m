@@ -128,10 +128,11 @@ classdef SignalData < handle
             
             % try to load file, see if we got it right
             try
-                % first, load some info on the file
+                % first, load some info on the file               
                 if obj.filename(end-2) == 'a'
                     [~,~,h]=abfload(obj.filename,'info');
                 else
+                    disp(['Loading cbf file ' fname '...'])
                     [~,h]=cbfload(obj.filename,'info');
                 end
             catch

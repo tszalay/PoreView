@@ -767,6 +767,10 @@ classdef CrampFit < handle
                 ylim = get(sig.axes,'YLim');
             end
             function setY(ylim)
+                ylim = sort(ylim);
+                if (ylim(2)-ylim(1)) < 1e-10
+                    return
+                end
                 set(sig.axes,'YLimMode','manual');
                 set(sig.axes,'YLim',ylim);
             end

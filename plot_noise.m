@@ -9,7 +9,7 @@ function plot_noise(sigdata, trange)
     % get start and end index
     irange = floor(trange/sigdata.si);
     
-    fftsize = 2*655356;
+    fftsize = 2*65536;
 
     % only process real signals
     dfft = zeros(fftsize,sigdata.nsigs);

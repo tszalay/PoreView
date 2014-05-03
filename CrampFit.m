@@ -582,6 +582,12 @@ classdef CrampFit < handle
                 end
                 return
             end
+            
+            % get last bit of filename
+            [~,fn,ext] = fileparts(fname);
+            % and set title bar
+            set(obj.fig,'Name',['CrampFit - ' fn ext]);
+            
             % set internal data
             obj.data = d;
             

@@ -224,7 +224,7 @@ classdef SignalData < handle
                 dind = floor(obj.ndata/obj.nred);
                 % number of red. points to do per file loading step
                 % load ~ 4 sec at a time, should be an even number
-                nstepred = 2*floor(2/obj.si/dind);
+                nstepred = 2*floor(1/obj.si/dind);
                 
                 ired = 0;
                 
@@ -255,7 +255,8 @@ classdef SignalData < handle
                     ired = ired + nstepred;
                     
                     % display percent loaded something something foo
-                    fprintf('\b\b\b\b%2d%%\n',floor(100*ired/obj.nred));
+                    idisp = min(obj.nred,ired);
+                    fprintf('\b\b\b\b%2d%%\n',floor(100*idisp/obj.nred));
                 end
                 
                 % trim off extra points

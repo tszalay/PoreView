@@ -165,6 +165,7 @@ classdef SignalData < handle
             obj.vsrcs = {};
             
             obj.header = h;
+            obj.nred = 0;
             
             if ~isfield(h,'type')
                 % abf version
@@ -176,6 +177,8 @@ classdef SignalData < handle
                 obj.tstart = 0; % dunno how to get actual start from abf
                 obj.tend = obj.si*(obj.ndata-1);
                 obj.nsigs = h.nADCNumChannels;
+                % which signals to reduce
+                redsrc = 1:(1+obj.nsigs);
             else
                 % cbf version
                 
@@ -184,6 +187,13 @@ classdef SignalData < handle
                 obj.tstart = 0;
                 obj.tend = obj.si*(obj.ndata-1);
                 obj.nsigs = h.numChan;
+                
+                % add a default virtual signal for host low-pass filter
+                f = h.hostFilterHz;
+                obj.addVirtualSignal(@(d) filt_lp(d,4,f),...
+                    sprintf('Low-Pass %d',f),[2 3]);
+                % use low-pass filtered for reduced data...
+                redsrc = [1 6 7 4 5];
             end
             
             % set cache to default values
@@ -204,7 +214,7 @@ classdef SignalData < handle
                 
                 % check if we have few enough points to not need reduced
                 % data, which is just the above value times a constant
-                if (obj.ndata < 10*obj.nred)
+                if (obj.ndata < 4*obj.nred)
                     % the rest of the program will know that this means
                     % that there is no reduced data being used
                     obj.nred = 0;
@@ -237,6 +247,8 @@ classdef SignalData < handle
                     
                     % load next data slice
                     d = obj.getData(fullIndex(ired),fullIndex(inext));
+                    % and use only the parts we said we would
+                    d = d(:,redsrc);
                     % generate array of indices - each el corresponds to
                     % reduced point index (yeah this is a bit hacky oh well)
                     % eg. this array ends up as [1 1 1 1 1 2 2 2 2 2 3 etc]
@@ -270,6 +282,9 @@ classdef SignalData < handle
                 catch
                     fprintf(2,'\nCould not save reduced data to %s_red.mat!\n',obj.filename);
                 end
+                
+                % make sure everything is tidy
+                obj.updateVirtualData(true);
             end
         end
 

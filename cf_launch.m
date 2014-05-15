@@ -71,6 +71,34 @@ function cf = cf_launch()
             end
             % then make a noise plot
             plot_noise(cf.data,tr);
+        
+        elseif strcmp(e.Character,'p')
+            % load and display the pizeo
+            if isempty(cf.data.filename)
+                return
+            end
+            
+            pf = [cf.data.filename '_pzt.mat'];
+            if isempty(dir(pf))
+                return
+            end
+            
+            dat = load(pf);
+            
+            cf.addSignalPanel([]);
+            ax = cf.getAxes(numel(cf.psigs));
+            % don't draw smoothly interpolated lines; draw sharp jumps
+            ts = cf.data.si*dat.pzt(:,1);
+            zs = dat.pzt(:,2);
+            % double the position and time indices
+            inds = 1 + floor(0.5*(0:numel(ts)-1));
+            ts = ts(inds);
+            zs = zs(inds);
+            % and offset by one
+            ts = ts(2:end);
+            zs = zs(1:end-1);
+            plot(ax, ts, zs, 'r');
+            cf.psigs(end).setY([0 max(zs)]);
         end
     end
 

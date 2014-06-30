@@ -5,7 +5,7 @@ function cf = cf_launch()
     %   keyboard callback behavior you want.
 
     % this sets the default directory for File->Open
-	cf = CrampFit('C:\Axon\Nanopores');
+	cf = CrampFit('C:\Data\CrampData');
     
     % variable to hold the ranges we are trimming
     ranges = [];

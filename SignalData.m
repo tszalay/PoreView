@@ -282,10 +282,9 @@ classdef SignalData < handle
                 catch
                     fprintf(2,'\nCould not save reduced data to %s_red.mat!\n',obj.filename);
                 end
-                
-                % make sure everything is tidy
-                obj.updateVirtualData(true);
             end
+            % make sure everything is tidy
+            obj.updateVirtualData(true);
         end
 
         

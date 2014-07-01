@@ -26,7 +26,7 @@ function plot_noise(sigdata, trange)
             break
         end
         % calculate power spectrum
-        df = abs(fft(d)).^2/fftsize;
+        df = sigdata.si*abs(fft(d)).^2/fftsize;
         % and add to fft accum.
         dfft = dfft + df;
         nframes = nframes + 1;

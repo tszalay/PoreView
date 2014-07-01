@@ -1,11 +1,14 @@
-function cf = cf_launch()
+function cf = cf_launch(s)
     % CF_LAUNCH()
     %   This is a 'launcher' file for CrampFit. It is designed to start an
     %   instance of CrampFit in a specified folder and to give it the 
     %   keyboard callback behavior you want.
 
     % this sets the default directory for File->Open
-	cf = CrampFit('C:\Axon\Nanopores');
+    if nargin < 1
+        s = 'W:\CrampData\';
+    end
+	cf = CrampFit(s);
     
     % variable to hold the ranges we are trimming
     ranges = [];

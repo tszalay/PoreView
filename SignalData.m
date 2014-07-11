@@ -177,8 +177,6 @@ classdef SignalData < handle
                 obj.tstart = 0; % dunno how to get actual start from abf
                 obj.tend = obj.si*(obj.ndata-1);
                 obj.nsigs = h.nADCNumChannels;
-                % which signals to reduce
-                redsrc = 1:(1+obj.nsigs);
             else
                 % cbf version
                 
@@ -187,13 +185,6 @@ classdef SignalData < handle
                 obj.tstart = 0;
                 obj.tend = obj.si*(obj.ndata-1);
                 obj.nsigs = h.numChan;
-                
-                % add a default virtual signal for host low-pass filter
-                f = h.hostFilterHz;
-                obj.addVirtualSignal(@(d) filt_lp(d,4,f),...
-                    sprintf('Low-Pass %d',f),[2 3]);
-                % use low-pass filtered for reduced data...
-                redsrc = [1 6 7 4 5];
             end
             
             % set cache to default values
@@ -209,8 +200,8 @@ classdef SignalData < handle
                 fprintf('\nLoaded reduced data from %s_red.mat.\n',obj.filename);
             catch
                 % CHANGE THIS LINE TO CHANGE HOW MANY REDUCED POINTS WE
-                % HAVE WHEEEEEE
-                obj.nred = 5e5;
+                % HAVE WHEEEEEE (should be power of 2!)
+                obj.nred = 2^19;
                 
                 % check if we have few enough points to not need reduced
                 % data, which is just the above value times a constant
@@ -223,68 +214,107 @@ classdef SignalData < handle
                     return;
                 end
                 
-                fprintf('\n\nBuilding reduced data with %d points -  0%%\n',obj.nred);
-                obj.datared = zeros(obj.nred,obj.nsigs+1);
- 
-                % go through entire file and build it
-                % this function returns index into full data of ith point
-                fullIndex = @(ind) floor((obj.ndata-1)*ind/obj.nred);
-                obj.datared(:,1) = obj.si*fullIndex(1:obj.nred);
-                % full points per reduced point
-                dind = floor(obj.ndata/obj.nred);
-                % number of red. points to do per file loading step
-                % load ~ 4 sec at a time, should be an even number
-                nstepred = 2*floor(1/obj.si/dind);
-                
-                ired = 0;
-                
-                while (ired < obj.nred)
-                    % current index and next index
-                    inext = ired + nstepred;
-                    if (inext > obj.nred)
-                        inext = obj.nred;
-                    end
-                    
-                    % load next data slice
-                    d = obj.getData(fullIndex(ired),fullIndex(inext));
-                    % and use only the parts we said we would
-                    d = d(:,redsrc);
-                    % generate array of indices - each el corresponds to
-                    % reduced point index (yeah this is a bit hacky oh well)
-                    % eg. this array ends up as [1 1 1 1 1 2 2 2 2 2 3 etc]
-                    inds = floor(linspace(1,0.999+(inext-ired)*0.5,size(d,1)))';
-                    
-                    % get the min and max values for each signal
-                    for i=2:obj.nsigs+1
-                        mins = accumarray(inds,d(:,i),[nstepred/2,1],@min);
-                        maxs = accumarray(inds,d(:,i),[nstepred/2,1],@max);
-                        np = 2*size(mins,1);
-                        % make alternating min-max data
-                        % and write it to output array
-                        obj.datared(ired+1:ired+np,i) = reshape([mins maxs]',[np 1]);
-                    end
-                                        
-                    ired = ired + nstepred;
-                    
-                    % display percent loaded something something foo
-                    idisp = min(obj.nred,ired);
-                    fprintf('\b\b\b\b%2d%%\n',floor(100*idisp/obj.nred));
-                end
-                
-                % trim off extra points
-                obj.datared = obj.datared(1:obj.nred,:);
-                
-                % and save the data
-                try
-                    red = obj.datared;
-                    save([obj.filename  '_red.mat'],'red');
-                    fprintf('\nDone, saved to %s_red.mat.\n',obj.filename);
-                catch
-                    fprintf(2,'\nCould not save reduced data to %s_red.mat!\n',obj.filename);
-                end
+                obj.buildReduced();
             end
             % make sure everything is tidy
             obj.updateVirtualData(true);
+        end
+        
+        
+        function buildReduced(obj, freq)
+            % buildReduced() - Build subsampled dataset, filtering at 10khz
+            % buildReduced(freq) - Build subsampled dataset, filtered at freq
+            %     After reduced dataset has been built, it gets saved to
+            % filename_red.mat.
+
+            if nargin < 2
+                freq = 10000;
+            end
+            % make filters
+            Wn = 2*obj.si*freq; % = freq/(0.5*Fmax)
+            % get SOS coefficients
+            [z,p,k] = butter(4,Wn);
+            [sos,g] = zp2sos(z,p,k);
+            filt = dfilt.df2sos(sos,g);
+            % make sure it's persistent so we don't get weird artifacts
+            filt.PersistentMemory = true;
+            
+            % how many times to halve the data, to get at most nred points
+            nhalve = ceil(log2(obj.ndata)) - round(log2(obj.nred));
+            % how many points this leaves us with
+            obj.nred = floor(obj.ndata/(2^nhalve));
+            
+            fprintf('\n\nBuilding reduced data with %d points -  0%%\n',obj.nred);
+            tic
+            
+            obj.datared = zeros(obj.nred,obj.nsigs+1);
+
+            % go through entire file and build it
+            % load a bundle o' points at a time
+            nstep = 2^21;
+
+            curind = 0;
+            redind = 1;
+            
+            while curind < obj.ndata
+                % current index and next index
+                % load next data slice
+                d = obj.getData(curind,curind+nstep-1);
+                
+                % throw away time
+                d = d(:,2:end);
+                % how many points we actually got, and reduced
+                np = size(d,1);
+                nr = floor(np/2^nhalve);
+                
+                % 'seed' the filter if this is the first iter
+                if curind == 0
+                    filt.filter(d);
+                end
+                % filter the data
+                d = filt.filter(d);
+                
+                % check if we have too little, and pad end
+                if size(d,1) < nstep
+                    d = [d; nan(nstep-size(d,1),size(d,2))];
+                end
+                
+                % now reduce and stuff
+                if nhalve > 0
+                    nd = 2^(nhalve+1);
+                    % turn into array with each column stuff and stuff
+                    dr = reshape(d,[nd numel(d)/nd]);
+                    % now each column is nd adjacent elements, alternate
+                    % min and max...
+                    %[2*numel(d)/nd 1] --> [2*numel(d)/nd/size(d,2) size(d,2)]
+                    d = reshape([min(dr); max(dr)],[2*numel(d)/(nd*size(d,2)), size(d,2)]);
+                    % seriously, just trust me guys...
+                end
+
+                % display percent loaded something something foo
+                idisp = min(obj.ndata,curind);
+                if (np == nstep)
+                    fprintf('\b\b\b\b%2d%%\n',floor(100*idisp/obj.ndata));
+                end
+                
+                curind = curind + nstep;
+                obj.datared(redind:redind+nr-1,2:end) = d(1:nr,:);
+                redind = redind+nr;
+            end
+            
+            % set times
+            obj.datared(:,1) = (0:obj.nred-1)'*obj.si*2^nhalve;
+            
+            fprintf('\nBuilt in %f sec\n',toc);
+
+            % and save the data
+            try
+                red = obj.datared;
+                save([obj.filename  '_red.mat'],'red');
+                fprintf('\nDone, saved to %s_red.mat.\n',obj.filename);
+            catch
+                fprintf(2,'\nCould not save reduced data to %s_red.mat!\n',obj.filename);
+            end
         end
 
         
@@ -606,7 +636,7 @@ classdef SignalData < handle
             end
 
             % do the same with the cache
-            if ~isempty(obj.dcache)
+            if ~isempty(obj.dcache) && obj.nvsigs > 0
                 d = obj.dcache(:,1:obj.nsigs+1);
                 obj.dcache = zeros(size(obj.dcache,1), 1+obj.nsigs+obj.nvsigs);
                 obj.dcache(:,1:obj.nsigs+1) = d;

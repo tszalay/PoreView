@@ -782,11 +782,15 @@ classdef CrampFit < handle
             end
             function resetY()
                 % let Matlab scale our axes, but don't scale to user-added
-                % objects or to data cursors
+                % objects or to data cursors (unless there is no data!)
                 % so first we make them all invisible
                 cvis = get(obj.cursors(1),'Visible');
+                set(obj.cursors,'Visible','off');
                 hs = findobj(sig.axes,'-not','Tag','CFPLOT');
-                set(hs,'Visible','off');
+                if (~isempty(obj.data))
+                    % if no data, scale to user-plotted stuff
+                    set(hs,'Visible','off');
+                end
                 set(sig.axes,'YLimMode','auto');
                 ylim = getY();
                 % and then make them visible again
@@ -989,8 +993,28 @@ classdef CrampFit < handle
             %   Sets the x-limits (with bounding, of course). Also
             %   reloads/redraws everything.
             
-            % if we don't have anything loaded, get outta here
+            % if we don't have anything loaded, just limit to plotted
+            % objects et cetera
             if isempty(obj.data)
+                if (nargin < 2)
+                    % reset view
+                    set([obj.psigs.axes],'XLimMode','auto');
+                    % and find the max of them
+                    mm = [inf -inf];
+                    for i=1:numel(obj.psigs)
+                        xlim = get(obj.psigs(i).axes,'XLim');
+                        mm(1) = min(mm(1),xlim(1));
+                        mm(2) = max(mm(2),xlim(2));
+                    end
+                    set(obj.xaxes,'XLimMode','manual');
+                    set([obj.psigs.axes],'XLimMode','manual');
+                    set(obj.xaxes,'XLim',mm);
+                    set([obj.psigs.axes],'XLim',mm);
+                else
+                    % set view
+                    set(obj.xaxes,'XLim',rng);
+                    set([obj.psigs.axes],'XLim',rng);
+                end
                 return
             end
             

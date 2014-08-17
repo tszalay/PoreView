@@ -91,15 +91,14 @@ function cf = cf_launch(s)
             cf.addSignalPanel([]);
             ax = cf.getAxes(numel(cf.psigs));
             % don't draw smoothly interpolated lines; draw sharp jumps
-            ts = cf.data.si*dat.pzt(:,1);
+            ts = cf.data.si*[dat.pzt(:,1); cf.data.ndata];
             zs = dat.pzt(:,2);
-            % double the position and time indices
-            inds = 1 + floor(0.5*(0:numel(ts)-1));
-            ts = ts(inds);
-            zs = zs(inds);
+            % double the position and time vectors
+            ts = reshape(repmat(ts',[2,1]),[2*numel(ts) 1]);
+            zs = reshape(repmat(zs',[2,1]),[2*numel(zs) 1]);
+
             % and offset by one
-            ts = ts(2:end);
-            zs = zs(1:end-1);
+            ts = ts(2:end-1);
             plot(ax, ts, zs, 'r');
             cf.psigs(end).setY([0 max(zs)]);
         end

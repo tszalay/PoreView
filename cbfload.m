@@ -10,12 +10,11 @@ function [ d, h ] = cbfload(filename, range)
     end
     
     % get total length of file
-    fseek(fid,0,'eof');
-    fileSize = ftell(fid);
-    fseek(fid,0,'bof');
+    d = dir(filename);
+    fileSize = d.bytes;
 
     % now read number of header points, and the header
-    nh = fread(fid,1,'*uint32');
+    nh = uint64(fread(fid,1,'*uint32'));
     hh = fread(fid,nh,'*uint8');
     h = getArrayFromByteStream(hh);
     

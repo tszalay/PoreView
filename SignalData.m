@@ -233,7 +233,13 @@ classdef SignalData < handle
             % make filters
             Wn = 2*obj.si*freq; % = freq/(0.5*Fmax)
             % get SOS coefficients
-            [z,p,k] = butter(4,Wn);
+            if (Wn < 1.0)
+                [z,p,k] = butter(4,Wn);
+            else
+                z = [];
+                p = [];
+                k = 1;
+            end
             [sos,g] = zp2sos(z,p,k);
             filt = dfilt.df2sos(sos,g);
             % make sure it's persistent so we don't get weird artifacts

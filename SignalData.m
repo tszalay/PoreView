@@ -611,9 +611,6 @@ classdef SignalData < handle
                 for i=1:numel(obj.header.activeChans)
                     chan = obj.header.activeChans(i);
                     obj.datared(:,i+1) = mf.(['ch_' num2str(chan)]);
-                    % scale it to pA
-                    obj.datared(:,i+1) = (obj.datared(:,i+1) + obj.header.offset(chan))...
-                        * obj.header.range / obj.header.digitization;
                 end
             else
                 if isempty(dir(redfile))
@@ -677,10 +674,6 @@ classdef SignalData < handle
                     d = cbfload(obj.filename,[obj.cstart,(obj.cend+1)]);
                 elseif strcmp(obj.ext, '.fast5')
                     d = fast5load(obj.filename,[obj.cstart,(obj.cend+1)],obj.header.activeChans);
-                    for i=1:size(d,2)
-                        d(:,i) = (d(:,i) + obj.header.offset(obj.header.activeChans(i)))...
-                        * obj.header.range / obj.header.digitization;
-                    end
                 end
                 %fprintf('Loaded %d points (%d-%d) into the cache\n   ',size(obj.dcache,1),floor(obj.cstart),floor(obj.cend));
                 

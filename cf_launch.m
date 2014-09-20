@@ -20,7 +20,7 @@ function cf = cf_launch(s)
         end
         
         % to figure out what the keys are called, uncomment this line
-        disp(e);
+        %disp(e);
         
         if strcmp(e.Character,'f')
             % create the requisite virtual signals (filters)

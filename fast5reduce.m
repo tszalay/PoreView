@@ -42,7 +42,6 @@ function fast5reduce(filename)
     mf = matfile([filename '_red.mat']);
     
     for chan=minchan:maxchan
-        chanstr = ['/Raw/Channel_', num2str(chan), '/Signal'];
 
         curind = 0;
         redind = 1;
@@ -60,7 +59,7 @@ function fast5reduce(filename)
                 thisstep = numpts-curind-1;
             end
                 
-            d = h5read(filename,chanstr,curind+1,thisstep);
+            d = fast5load(filename,[curind+1,curind+1+thisstep],chan);
 
             % how many points we actually got, and reduced
             np = size(d,1);

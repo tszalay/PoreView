@@ -1,15 +1,6 @@
 function [ d, h ] = fast5load(filename, range, channels)
 %FAST5LOAD Loads an Oxford Nanopore fast5-generated file
 
-% important header fields:
-    % si
-    % ndata
-    % tstart
-    % tend
-    % nsigs
-    % also include: channels
-    % (which are the 'valid' channels from requested)
-
     d = [];
     
     % unlike other ones, we're only returning header here if info requested
@@ -62,8 +53,19 @@ function [ d, h ] = fast5load(filename, range, channels)
     for i=1:numel(channels)
         chan = channels(i);
         chanstr = ['/Raw/Channel_', num2str(chan), '/Signal'];
+        chanmeta = ['/Raw/Channel_', num2str(chan), '/Meta'];
+        
+        % get various attributes for each channel
+        % yes, this slows it down a bit, but oh well
+        % (abf load does it too!)
+        offset = h5readatt(filename, chanmeta, 'offset');
+        digitization = h5readatt(filename, chanmeta, 'digitisation');
+        adcrange = h5readatt(filename, chanmeta, 'range');
+
         % read corresponding channel's points
         d(:,i) = h5read(filename, chanstr, range(1)+1, range(2)-range(1));
+        % and scale it according to metadata
+        d(:,i) = (d(:,i)+offset)*adcrange/digitization;
     end
 end
 

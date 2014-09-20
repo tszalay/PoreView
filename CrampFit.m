@@ -145,7 +145,7 @@ classdef CrampFit < handle
                     fn = fname;
                 end
                 % get a filename from dialog box
-                [FileName,PathName] = uigetfile('*.abf;*.cbf','CrampFit',fn);
+                [FileName,PathName] = uigetfile('*.abf;*.cbf;*.fast5','CrampFit',fn);
                 % and load (or attempt to)
                 obj.loadFile([PathName FileName]);
             end
@@ -427,7 +427,9 @@ classdef CrampFit < handle
                 % convert to x-range
                 xr = sort([pt0(1) pt1(1,1)]);
                 % update the line
-                set(r,'YData',[0,0],'XData',xr,'LineWidth',8);
+                if ishandle(r)
+                    set(r,'YData',[0,0],'XData',xr,'LineWidth',8);
+                end
             end
             function mouseMoveY(r,ind)
                 % get start and current point
@@ -437,8 +439,10 @@ classdef CrampFit < handle
                 yr = sort([pt0(2) pt1(1,2)]);
                 % set x limits of y-line
                 xl = get(obj.psigs(ind).yaxes,'XLim');
-                % and update the line
-                set(r,'XData',[xl(1),xl(1)],'YData',yr,'LineWidth',5);
+                % and update the line, if it exists
+                if ishandle(r)
+                    set(r,'XData',[xl(1),xl(1)],'YData',yr,'LineWidth',5);
+                end
             end
             function mouseUpX(r)
                 % kill the line

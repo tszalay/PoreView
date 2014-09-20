@@ -19,9 +19,13 @@ function [ d, h ] = fast5load(filename, range, channels)
         h = [];
         % check the channels
         numpts = 0;
+        digitization = 0;
+        mrange = 0;
         chans = [];
+        h.offset = zeros(512,1);
         for chan = 1:512
             chanstr = ['/Raw/Channel_', num2str(chan), '/Signal'];
+            chanmeta = ['/Raw/Channel_', num2str(chan), '/Meta'];
             try
                 s = h5info(filename, chanstr);
             catch
@@ -31,6 +35,9 @@ function [ d, h ] = fast5load(filename, range, channels)
             % channel exists
             chans(end+1) = chan;
             numpts = s.Dataspace.Size;
+            h.offset(chan) = h5readatt(filename, chanmeta, 'offset');
+            digitization = h5readatt(filename, chanmeta, 'digitisation');
+            mrange = h5readatt(filename, chanmeta, 'range');
         end
         
         h.numPts = numpts;
@@ -38,7 +45,11 @@ function [ d, h ] = fast5load(filename, range, channels)
         h.minChan = min(chans);
         h.maxChan = max(chans);
         
-        samplerate = h5readatt(filename, ['/Raw/Channel_', num2str(chan), '/Meta'], 'sample_rate');
+        % digitization and range
+        h.digitization = digitization;
+        h.range = mrange;
+        
+        samplerate = h5readatt(filename, chanmeta, 'sample_rate');
         
         h.si = 1.0/samplerate;
         

@@ -138,6 +138,14 @@ classdef SignalData < handle
                     [~,h]=cbfload(obj.filename,'info');
                 elseif strcmp(obj.ext,'.fast5')
                     [~,h]=fast5load(obj.filename,'info');
+                elseif isempty(obj.ext)
+                    % directory specified
+                    obj.ndata = -1;
+                    return
+                else
+                    fprintf(2,'Invalid filetype: %s!\n',obj.filename);
+                    obj.ndata = -1;
+                    return
                 end
             catch
                 fprintf(2,'Failed to load file %s!\n',obj.filename);
@@ -198,6 +206,12 @@ classdef SignalData < handle
                 else
                     fprintf(2,'Channels must be specified for fast5!\n');
                     obj.header.activeChans = obj.header.minChan;
+                end
+                
+                % save channel names
+                obj.header.chNames = {};
+                for i=1:numel(obj.header.activeChans)
+                    obj.header.chNames{i} = ['Channel ' num2str(obj.header.activeChans(i))];
                 end
                 
                 obj.si = h.si;
@@ -592,10 +606,14 @@ classdef SignalData < handle
                 obj.nred = mf.nred;
                 obj.datared = zeros(obj.nred,numel(obj.header.activeChans)+1);
                 % create time column
-                obj.datared(:,1) = (0:obj.nred-1)*obj.si*mf.nhalve;
+                obj.datared(:,1) = (0:obj.nred-1)*obj.si*(2^mf.nhalve);
                 % and load other columns
                 for i=1:numel(obj.header.activeChans)
-                    obj.datared(:,i+1) = mf.(['ch_' num2str(obj.header.activeChan(i))]);
+                    chan = obj.header.activeChans(i);
+                    obj.datared(:,i+1) = mf.(['ch_' num2str(chan)]);
+                    % scale it to pA
+                    obj.datared(:,i+1) = (obj.datared(:,i+1) + obj.header.offset(chan))...
+                        * obj.header.range / obj.header.digitization;
                 end
             else
                 if isempty(dir(redfile))
@@ -658,7 +676,11 @@ classdef SignalData < handle
                     % cbf version
                     d = cbfload(obj.filename,[obj.cstart,(obj.cend+1)]);
                 elseif strcmp(obj.ext, '.fast5')
-                    d = fast5load(obj.filename,[obj.cstart,(obj.cend+1)],obj.header.Channels);
+                    d = fast5load(obj.filename,[obj.cstart,(obj.cend+1)],obj.header.activeChans);
+                    for i=1:size(d,2)
+                        d(:,i) = (d(:,i) + obj.header.offset(obj.header.activeChans(i)))...
+                        * obj.header.range / obj.header.digitization;
+                    end
                 end
                 %fprintf('Loaded %d points (%d-%d) into the cache\n   ',size(obj.dcache,1),floor(obj.cstart),floor(obj.cend));
                 

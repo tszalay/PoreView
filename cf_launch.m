@@ -6,7 +6,7 @@ function cf = cf_launch(s)
 
     % this sets the default directory for File->Open
     if nargin < 1
-        s = 'W:\CrampData\';
+        s = 'C:\Minion';
     end
 	cf = CrampFit(s);
     
@@ -20,52 +20,27 @@ function cf = cf_launch(s)
         end
         
         % to figure out what the keys are called, uncomment this line
-        %disp(e);
+        disp(e);
         
-        if strcmp(e.Character,'k')
-            % remove a range of points between cursors
-            xlim = cf.getCursors();
-            if isempty(xlim)
-                % cursors are invisible
-                return
+        if strcmp(e.Character,'f')
+            % create the requisite virtual signals (filters)
+
+            % just add a nice low-pass filter
+            cf.data.addVirtualSignal(@(d) filt_lp(d,4,200),'Low-pass');
+            
+            % and add them to each signal panel
+            for i=1:numel(cf.psigs)
+                cf.psigs(i).sigs = [cf.psigs(i).sigs cf.psigs(i).sigs + cf.data.nsigs];
             end
             
-            % get average of endpoints, in a narrow range around them
-            y0s = mean(cf.data.getByTime(xlim(1),xlim(1)+0.001));
-            y1s = mean(cf.data.getByTime(xlim(2),xlim(2)-0.001));
-            % and their average
-            yave = mean([y0s; y1s]);
-            % and add it to ranges
-            ranges(end+1,:) = [xlim yave(2:cf.data.nsigs+1)];
-            % update virtual signal
-            cf.data.addVirtualSignal(@(d) filt_rmrange(d,ranges),'Range-edited');
-            % and refresh visible points
             cf.refresh();
-            % and display some stuff
-            fprintf('Removed %f to %f\n',xlim(1),xlim(2));
-            
-        elseif strcmp(e.Character,'f')
-            % create the requisite virtual signals
-            
-            % subselected data filter
-            f_rm = cf.data.addVirtualSignal(@(d) filt_rmrange(d,ranges),'Range-edited');
-            % high pass acts on subselected data
-            f_hp = cf.data.addVirtualSignal(@(d) filt_hp(d,4,200),'High-pass',f_rm);
-            % tell median to act on high-passed data
-            f_med = cf.data.addVirtualSignal(@(d) filt_med(d,15),'Median',f_hp);
-            
-            % also set which signals to draw in each panel, you can play
-            % with this all you like
-            cf.setSignalPanel(1, f_rm(1));
-            
-            % draw both median-filtered panels
-            cf.addSignalPanel(f_med);
+
 
             disp('Filters added')
-        
+
         elseif strcmp(e.Character,'n')
-            % display a noise plot!
-            
+            % display a noise plot, a la ClampFit
+
             % if cursors, do those
             tr = cf.getCursors();
             if isempty(tr)
@@ -74,33 +49,32 @@ function cf = cf_launch(s)
             end
             % then make a noise plot
             plot_noise(cf.data,tr);
-        
-        elseif strcmp(e.Character,'p')
-            % load and display the pizeo
-            if isempty(cf.data.filename)
-                return
-            end
-            
-            pf = [cf.data.filename '_pzt.mat'];
-            if isempty(dir(pf))
-                return
-            end
-            
-            dat = load(pf);
-            
-            cf.addSignalPanel([]);
-            ax = cf.getAxes(numel(cf.psigs));
-            % don't draw smoothly interpolated lines; draw sharp jumps
-            ts = cf.data.si*[dat.pzt(:,1); cf.data.ndata];
-            zs = dat.pzt(:,2);
-            % double the position and time vectors
-            ts = reshape(repmat(ts',[2,1]),[2*numel(ts) 1]);
-            zs = reshape(repmat(zs',[2,1]),[2*numel(zs) 1]);
 
-            % and offset by one
-            ts = ts(2:end-1);
-            plot(ax, ts, zs, 'r');
-            cf.psigs(end).setY([0 max(zs)]);
+        elseif strcmp(e.Character,'s')
+            % select channels (in a fast5 file)
+
+            if ~strcmp(cf.data.ext,'.fast5')
+                return
+            end
+
+            % pop up input box to enter desired channels
+            val = inputdlg('Enter channels to view, separated by commas:      ','CrampFit');
+            if isempty(val) || isempty(val{1})
+                return
+            end
+            chans = str2num(val{1});
+            chans = chans(and(chans >= cf.data.header.minChan, chans <= cf.data.header.maxChan));
+            if isempty(chans)
+                errordlg('Invalid channel numbers entered!','CrampFit');
+                return
+            end
+            % reload with appropriate channels
+            cf.data = SignalData(cf.data.filename,'Channels',chans);
+            % remove any signals that exist no more
+            for i=1:numel(cf.psigs)
+                cf.psigs(i).sigs = cf.psigs(i).sigs(cf.psigs(i).sigs <= numel(chans));
+            end
+            cf.refresh();
         end
     end
 

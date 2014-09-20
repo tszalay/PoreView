@@ -1,72 +1,58 @@
-function [ d, h ] = cbfload(filename, range)
-%CBFLOAD Loads a CrampEx-generated binary file
+function [ d, h ] = fast5load(filename, range, channels)
+%FAST5LOAD Loads an Oxford Nanopore fast5-generated file
+
+% important header fields:
+    % si
+    % ndata
+    % tstart
+    % tend
+    % nsigs
+    % also include: channels
+    % (which are the 'valid' channels from requested)
 
     d = [];
-
-    % open the file and read header
-    fid = fopen(filename,'r');
-    if fid == -1
-        error(['Could not open ' filename]);
-    end
     
-    % get total length of file
-    d = dir(filename);
-    fileSize = d.bytes;
-
-    % now read number of header points, and the header
-    nh = uint64(fread(fid,1,'*uint32'));
-    hh = fread(fid,nh,'*uint8');
-    h = getArrayFromByteStream(hh);
-    
-    fstart = 4+nh;
-    
-    % also, how many points and channels?
-    h.numChan = numel(h.chNames);
-    % this is the total number of points
-    h.numTotal = double(fileSize - fstart)/2;
-    % this is the number per each channel
-    h.numPts = double(h.numTotal/h.numChan);
-    
-    % load data, or just return header?
-    if nargin > 1 && strcmp(range,'info')
-        fclose(fid);
-        return;
-    end
-    
-    if strcmp(h.type,'IV')
-        % if IV-curve, completely ignore range param
-        h.numSweeps = numel(h.setVoltages);
-        h.numPerSweep = h.numPts/h.numSweeps;
-        % load points
-        d16 = reshape(fread(fid,h.numTotal,'*int16'),[h.numChan, h.numPerSweep, h.numSweeps]);
-        % create output array of doubles
-        d = zeros([h.numSweeps, h.numPerSweep, h.numChan]);
-        % and copy over channel-by-channel
-        for i=1:h.numChan
-            d(:,:,i) = double(permute(d16(i,:,:),[3 2 1])) * h.scaleFactors(i);
-        end
-    else
-        % find the right place to seek, and do so
-        if nargin<2
-            range = [0 h.numPts];
+    % unlike other ones, we're only returning header here if info requested
+    % otherwise, we assume channels and range is valid...!
+    if strcmp(range,'info')
+        % header request
+        h = [];
+        % check the channels
+        numpts = 0;
+        chans = [];
+        for chan = 1:512
+            chanstr = ['/Raw/Channel_', num2str(chan), '/Signal'];
+            try
+                s = h5info(filename, chanstr);
+            catch
+                % this channel isn't present, so skip it
+                continue
+            end
+            % channel exists
+            chans(end+1) = chan;
+            numpts = s.Dataspace.Size;
         end
         
-        % go to start
-        fseek(fid, fstart+range(1)*2*h.numChan, 'bof');
-        % how many points and array size
-        npts = range(2) - range(1);
-        sz = [h.numChan, npts];
-        % now read
-        d16 = fread(fid, sz, '*int16');
-        % create output
-        d = zeros(fliplr(size(d16)));
-        % and copy/scale
-        for i=1:h.numChan
-            d(:,i) = double(d16(i,:))*h.scaleFactors(i);
-        end
+        h.numPts = numpts;
+        % min and max channels in the original file
+        h.minChan = min(chans);
+        h.maxChan = max(chans);
+        
+        samplerate = h5readatt(filename, ['/Raw/Channel_', num2str(chan), '/Meta'], 'sample_rate');
+        
+        h.si = 1.0/samplerate;
+        
+        return;
     end
 
-    % all done
-    fclose(fid);
+    % no header, just return data
+    d = zeros(range(2)-range(1),numel(channels));
+    
+    for i=1:numel(channels)
+        chan = channels(i);
+        chanstr = ['/Raw/Channel_', num2str(chan), '/Signal'];
+        % read corresponding channel's points
+        d(:,i) = h5read(filename, chanstr, range(1)+1, range(2)-range(1));
+    end
 end
 

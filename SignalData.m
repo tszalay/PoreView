@@ -89,6 +89,7 @@ classdef SignalData < handle
     % make it so these don't get screwed up
     properties (SetAccess=immutable)
         filename    % filename we are working with
+        ext         % extension of filename
         ndata       % number of points
         nsigs       % number of signals (not including time)
         si          % sampling interval
@@ -128,14 +129,14 @@ classdef SignalData < handle
             
             % try to load file, see if we got it right
             try
-                [~,~,ext] = fileparts(fname);
+                [~,~,obj.ext] = fileparts(fname);
                 % first, load some info on the file
-                if strcmp(ext,'.abf')
+                if strcmp(obj.ext,'.abf')
                     [~,~,h]=abfload(obj.filename,'info');
-                elseif strcmp(ext,'.cbf')
+                elseif strcmp(obj.ext,'.cbf')
                     disp(['Loading cbf file ' fname '...'])
                     [~,h]=cbfload(obj.filename,'info');
-                elseif strcmp(ext,'.fast5')
+                elseif strcmp(obj.ext,'.fast5')
                     [~,h]=fast5load(obj.filename,'info');
                 end
             catch
@@ -170,7 +171,7 @@ classdef SignalData < handle
             obj.header = h;
             obj.nred = 0;
             
-            if strcmp(ext,'.abf')
+            if strcmp(obj.ext,'.abf')
                 % abf version
                 
                 obj.si = h.si*1e-6;
@@ -180,7 +181,7 @@ classdef SignalData < handle
                 obj.tstart = 0; % dunno how to get actual start from abf
                 obj.tend = obj.si*(obj.ndata-1);
                 obj.nsigs = h.nADCNumChannels;
-            elseif strcmp(ext,'.cbf')
+            elseif strcmp(obj.ext,'.cbf')
                 % cbf version
                 
                 obj.si = h.si;
@@ -188,11 +189,22 @@ classdef SignalData < handle
                 obj.tstart = 0;
                 obj.tend = obj.si*(obj.ndata-1);
                 obj.nsigs = h.numChan;
-            elseif strcmp(ext,'.fast5')
+            elseif strcmp(obj.ext,'.fast5')
                 % fast5 version
                 
-                % take stuff from header and channel input
+                % parse varargin for channel info
+                if ~isempty(varargin) && strcmp(varargin{1},'Channels')
+                    obj.header.activeChans = varargin{2};
+                else
+                    fprintf(2,'Channels must be specified for fast5!\n');
+                    obj.header.activeChans = obj.header.minChan;
+                end
                 
+                obj.si = h.si;
+                obj.ndata = h.numPts - 2;
+                obj.tstart = 0;
+                obj.tend = obj.si*(obj.ndata-1);
+                obj.nsigs = numel(obj.header.activeChans);
             end
             
             % set cache to default values
@@ -200,32 +212,8 @@ classdef SignalData < handle
             obj.cend = 0;
             obj.dcache = [];
 
-            % try to load subsampled file
-            try
-                tmp = load([obj.filename  '_red.mat'],'red');
-                obj.datared = tmp.red;
-                obj.nred = size(obj.datared,1);
-                fprintf('\nLoaded reduced data from %s_red.mat.\n',obj.filename);
-            catch
-                % CHANGE THIS LINE TO CHANGE HOW MANY REDUCED POINTS WE
-                % HAVE WHEEEEEE (should be power of 2!)
-                obj.nred = 2^19;
-                
-                % check if we have few enough points to not need reduced
-                % data, which is just the above value times a constant
-                if (obj.ndata < 4*obj.nred)
-                    % the rest of the program will know that this means
-                    % that there is no reduced data being used
-                    obj.nred = 0;
-                    obj.datared = [];
-                    fprintf('\nNo reduced dataset needed.\n');
-                    return;
-                end
-                
-                obj.buildReduced();
-            end
-            % make sure everything is tidy
-            obj.updateVirtualData(true);
+            % try to load subsampled file, builds if can't load
+            obj.loadReduced();
         end
         
         
@@ -234,7 +222,22 @@ classdef SignalData < handle
             % buildReduced(freq) - Build subsampled dataset, filtered at freq
             %     After reduced dataset has been built, it gets saved to
             % filename_red.mat.
-
+            
+            % change this line to change how many reduced points we target
+            % (approximately)
+            obj.nred = 2^22;
+            
+            % check if we have few enough points to not need reduced
+            % data, as an arbitrarily chosen number
+            if (obj.ndata < 2^21)
+                % the rest of the program will know that this means
+                % that there is no reduced data being used
+                obj.nred = 0;
+                obj.datared = [];
+                fprintf('\nNo reduced dataset needed.\n');
+                return;
+            end
+            
             if nargin < 2
                 freq = 10000;
             end
@@ -571,6 +574,48 @@ classdef SignalData < handle
     % internal functions go here
     methods (Access=private, Hidden=true)
         
+        function loadReduced(obj)
+            % obj.loadReduced()
+            %   Load the reduced dataset, differently depending on datatype
+            %   (and dispatch to build it if it doesn't exist yet)
+            
+            redfile = [obj.filename  '_red.mat'];
+            
+            if strcmp(obj.ext, '.fast5')
+                if isempty(dir(redfile))
+                    % use special auxiliary function to build reduced
+                    fast5reduce(obj.filename);
+                end
+                % and now we're ready to load it
+                mf = matfile(redfile);
+                % make internal array
+                obj.nred = mf.nred;
+                obj.datared = zeros(obj.nred,numel(obj.header.activeChans)+1);
+                % create time column
+                obj.datared(:,1) = (0:obj.nred-1)*obj.si*mf.nhalve;
+                % and load other columns
+                for i=1:numel(obj.header.activeChans)
+                    obj.datared(:,i+1) = mf.(['ch_' num2str(obj.header.activeChan(i))]);
+                end
+            else
+                if isempty(dir(redfile))
+                    % build the reduced dataset with default settings
+                    obj.buildReduced();
+                else
+                    % note that the previous function also puts built one
+                    % into memory, so only need to load if we didn't do
+                    % that yet...
+                    tmp = load(redfile,'red');
+                    obj.datared = tmp.red;
+                    obj.nred = size(obj.datared,1);
+                    fprintf('\nLoaded reduced data from %s_red.mat.\n',obj.filename);
+                end
+            end
+            
+            % make sure everything is tidy
+            obj.updateVirtualData(true);
+        end
+        
         function d = getData(obj, ptstart, ptend)
             % data = obj.getData(ptstart,ptend)
             %   Returns data in the specified point range, from cache. Also
@@ -605,13 +650,15 @@ classdef SignalData < handle
                 
                 % load file, add in a 'cheat point' at the end just to make
                 % sure we get everything
-                if ~isfield(obj.header,'type')
+                if strcmp(obj.ext,'.abf')
                     % abf version!
                     d = abfload(obj.filename,'start',obj.cstart*obj.si,'stop',...
                         (obj.cend+1)*obj.si,'verbose',0);
-                else
+                elseif strcmp(obj.ext, '.cbf')
                     % cbf version
                     d = cbfload(obj.filename,[obj.cstart,(obj.cend+1)]);
+                elseif strcmp(obj.ext, '.fast5')
+                    d = fast5load(obj.filename,[obj.cstart,(obj.cend+1)],obj.header.Channels);
                 end
                 %fprintf('Loaded %d points (%d-%d) into the cache\n   ',size(obj.dcache,1),floor(obj.cstart),floor(obj.cend));
                 

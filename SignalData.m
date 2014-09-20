@@ -117,7 +117,7 @@ classdef SignalData < handle
     end
     
     methods
-        function obj = SignalData(fname)
+        function obj = SignalData(fname, varargin)
             % obj = SignalData(filename) - Creates class based on specified file
             %   Builds reduced data set if it doesn't yet exist, and tries
             %   to save it. If the file isn't loaded properly, resulting
@@ -128,12 +128,15 @@ classdef SignalData < handle
             
             % try to load file, see if we got it right
             try
-                % first, load some info on the file               
-                if obj.filename(end-2) == 'a'
+                [~,~,ext] = fileparts(fname);
+                % first, load some info on the file
+                if strcmp(ext,'.abf')
                     [~,~,h]=abfload(obj.filename,'info');
-                else
+                elseif strcmp(ext,'.cbf')
                     disp(['Loading cbf file ' fname '...'])
                     [~,h]=cbfload(obj.filename,'info');
+                elseif strcmp(ext,'.fast5')
+                    [~,h]=fast5load(obj.filename,'info');
                 end
             catch
                 fprintf(2,'Failed to load file %s!\n',obj.filename);
@@ -167,7 +170,7 @@ classdef SignalData < handle
             obj.header = h;
             obj.nred = 0;
             
-            if ~isfield(h,'type')
+            if strcmp(ext,'.abf')
                 % abf version
                 
                 obj.si = h.si*1e-6;
@@ -177,7 +180,7 @@ classdef SignalData < handle
                 obj.tstart = 0; % dunno how to get actual start from abf
                 obj.tend = obj.si*(obj.ndata-1);
                 obj.nsigs = h.nADCNumChannels;
-            else
+            elseif strcmp(ext,'.cbf')
                 % cbf version
                 
                 obj.si = h.si;
@@ -185,6 +188,11 @@ classdef SignalData < handle
                 obj.tstart = 0;
                 obj.tend = obj.si*(obj.ndata-1);
                 obj.nsigs = h.numChan;
+            elseif strcmp(ext,'.fast5')
+                % fast5 version
+                
+                % take stuff from header and channel input
+                
             end
             
             % set cache to default values
@@ -570,7 +578,7 @@ classdef SignalData < handle
         
             % check bounds first thing
             if (ptstart < 0 || ptend > obj.ndata-1 || ptend<ptstart)
-                fprintf(2,'Invalid points %d:%d requested\n',int64(ptstart),int64(ptend));
+                fprintf(2,'Invalid points %ld:%ld requested\n',int64(ptstart),int64(ptend));
             end
             ptstart = max(0,ptstart);
             % keep one point away from end, cause this is actually one too

@@ -1,7 +1,7 @@
 function DNAevent = find_events(cf)
 %FIND_EVENTS Finds events and returns an array of DNAevent structs
 %   events = find_events(cf)
-%   This is just an example of how to use CrampFit.
+%   This is just an example of how to use CrampFit programmatically.
 
     % Alternatively, instead of passing a CrampFit instance to the code,
     % you could just initialize one here:

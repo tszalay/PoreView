@@ -1,5 +1,10 @@
 function [ d, h ] = fast5load(filename, range, channels)
-%FAST5LOAD Loads an Oxford Nanopore fast5-generated file
+    %FAST5LOAD Loads raw data from a MinKNOW-generated fast5 file
+    %   fast5load(filename, range, channels) - Load range=[start,end] of
+    %       points, in the specified channels (1-512)
+    %   fast5load(filename, 'info') - Load header data only, return which
+    %       channels are recorded in the file
+
 
     d = [];
     

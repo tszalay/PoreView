@@ -1,5 +1,5 @@
 function [ filtdata ] = filt_lpb( data, n, fp )
-    %FILT_HP Filters data using a low-pass Bessel filter
+    %FILT_LPB Filters data using a low-pass Bessel filter
     %   Frequency fp is in Hz, n is poles.
     %   Data is passed with colums of [time, sig1, sig2, ...], and
     %       returns the same array but with the data filtered.

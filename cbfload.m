@@ -1,6 +1,8 @@
 function [ d, h ] = cbfload(filename, range)
-%CBFLOAD Loads a CrampEx-generated binary file
-
+    %CBFLOAD Loads data from a CrampEx-generated file in a range
+    %   cbfload(filename, range) - Load range=[start,end] of points, 0-based
+    %   cbfload(filename, 'info') - Load header data only
+    
     d = [];
 
     % open the file and read header

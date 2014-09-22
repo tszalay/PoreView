@@ -2,7 +2,7 @@ function plot_noise(sigdata, trange)
 %PLOT_NOISE Makes or adds to existing noise plot
 %   plot_noise(sigdata, trange)
 %   Takes a SignalData object and a time range as input, uses the same
-%   algorithm as ClampFit (I think).
+%       algorithm as ClampFit (I think).
 
     % do same thing as ClampFit does - average spectral segs
     % ClampFit does 2*65536 pts per seg

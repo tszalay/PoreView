@@ -1,11 +1,9 @@
 function d = filt_rmrange(d, range)
-    %FILT_RMRANGE Removes ranges of points
+    %FILT_RMRANGE Removes ranges of points with their averages
     %   Data is passed with colums of [time, sig1, sig2, ...], and
-    %       returns the same array but with the data filtered.
-
-    
-    % this function should be given ranges as [t0 t1 val; t0 t1 val; ...]
-    % (or [t0 t1 val0 val1] for files with multiple signals)
+    %       returns the same array but with the data filtered. Range should
+    %       be an array [t0 t1 val; t0 t1 val; ...] where the points
+    %       t0...t1 are replaced with val. Blame Ryan for this function.
 
     % check every row of range
     for i=1:size(range,1)

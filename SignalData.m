@@ -17,6 +17,7 @@ classdef SignalData < handle
     %
     % SignalData Properties:
     %   filename - Loaded name of file
+    %   ext - File type (extension), eg. '.abf' or '.fast5'
     %   ndata - Number of data points (per signal)
     %   nsigs - Number of signals in file
     %   si - Sampling interval, seconds

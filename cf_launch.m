@@ -25,7 +25,7 @@ function cf = cf_launch(s)
         if strcmp(e.Character,'f')
             % ask user what filters they want to add
 
-            str = inputdlg('Enter desired filter and frequency/param:','CrampFit',1,{'lp 10000'});
+            str = inputdlg('Enter desired filter and frequency/param:      ','CrampFit',1,{'lp 10000'});
             
             strs = strsplit(str{1});
             
@@ -93,10 +93,15 @@ function cf = cf_launch(s)
                 return
             end
             % reload with appropriate channels
+
             cf.data = SignalData(cf.data.filename,'Channels',chans);
             % remove any signals that exist no more
             for i=1:numel(cf.psigs)
                 cf.psigs(i).sigs = cf.psigs(i).sigs(cf.psigs(i).sigs <= numel(chans));
+                if isempty(cf.psigs(i).sigs)
+                    % and set to some default, so no empty panels
+                    cf.psigs(i).sigs = 2;
+                end
             end
             cf.refresh();
         end

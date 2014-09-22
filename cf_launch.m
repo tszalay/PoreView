@@ -23,20 +23,44 @@ function cf = cf_launch(s)
         %disp(e);
         
         if strcmp(e.Character,'f')
-            % create the requisite virtual signals (filters)
+            % ask user what filters they want to add
 
-            % just add a nice low-pass filter
-            cf.data.addVirtualSignal(@(d) filt_lp(d,4,200),'Low-pass');
+            str = inputdlg('Enter desired filter and frequency/param:','CrampFit',1,{'lp 10000'});
             
-            % and add them to each signal panel
+            strs = strsplit(str{1});
+            
+            if numel(strs) < 2
+                return
+            end
+            
+            param = str2double(strs{2});
+            if isnan(param) || param <= 0
+                return
+            end
+
+            switch strs{1}
+                case 'lp'
+                    filtname = sprintf('Low-pass (%d Hz)', param);
+                    fsigs = cf.data.addVirtualSignal(@(d) filt_lp(d,4,param),filtname);
+                case 'hp'
+                    filtname = sprintf('High-pass (%d Hz)', param);
+                    fsigs = cf.data.addVirtualSignal(@(d) filt_hp(d,4,param),filtname);
+                case 'med'
+                    filtname = sprintf('Median (%d pts)', param);
+                    fsigs = cf.data.addVirtualSignal(@(d) filt_med(d,param),filtname);
+                otherwise
+                    return
+            end            
+            
+            % and replace original signals with new ones
+            % uh trust me on this one
             for i=1:numel(cf.psigs)
-                cf.psigs(i).sigs = [cf.psigs(i).sigs cf.psigs(i).sigs + cf.data.nsigs];
+                s = cf.psigs(i).sigs;
+                s(s<=cf.data.nsigs+1) = s(s<=cf.data.nsigs+1) + fsigs(1) - 2;
+                cf.psigs(i).sigs = s;
             end
             
             cf.refresh();
-
-
-            disp('Filters added')
 
         elseif strcmp(e.Character,'n')
             % display a noise plot, a la ClampFit

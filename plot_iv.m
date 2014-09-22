@@ -123,7 +123,7 @@ function [Vs, Is] = plot_iv(filename)
         ys = coeffs(1)*xs + coeffs(2);
         hs(end+1) = plot(ax,xs,ys,'LineStyle','-.','Color',get(plts(i),'Color'));
         % and set the legend
-        set(hs(end),'DisplayName',sprintf('\\sigma = %4.4g nS',100*coeffs(1)));
+        set(hs(end),'DisplayName',sprintf('\\sigma = %4.4g nS',1000*coeffs(1)));
     end
     
     % now move original lines to the top

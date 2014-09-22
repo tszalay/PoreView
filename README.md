@@ -24,17 +24,19 @@ Tested in:
 CrampFit is the GUI program that lets you view and manipulate large datafiles efficiently, as well as add dynamic
 filters and superimpose plot objects.
 
-## Launching:
+## Launching
 
 Recommended: `cf = cf_launch();` or `cf=cf_launch(filename);` or `cf=cf_launch(start_dir);`
 Also works: `CrampFit`, `cf=CrampFit()`, `cf=CrampFit(filename)` etc.
 
-Think of the `cf_launch` file as a startup script - it sets up user-defined keyboard commands for the CrampFit program, as well as starts it in a directory of your choosing, so that File->Open will go to the right place. By writing `cf = cf_launch`, you are saving a handle to the CrampFit instance for later use, eg. `cf.autoscaleY()`.
+Think of the `cf_launch` file as a startup script - it sets up user-defined keyboard commands for the CrampFit program, as well as 
+starts it in a directory of your choosing, so that File->Open will go to the right place. By writing `cf = cf_launch`, you are saving a 
+handle to the CrampFit instance for later use, eg. `cf.autoscaleY()`.
 
 Press 'Escape' to quit at any time.
 
 
-## Adjusting View:
+## Adjusting view
 
 * Scrolling over a plot zooms the x-axis about the cursor position. 
 * Scrolling over a y-axis zooms that y axis about the cursor position.
@@ -48,6 +50,14 @@ Press 'Escape' to quit at any time.
 * Double-click to bring cursors.
 * Click and drag cursors to move them.
 * Press 'c' to show/hide cursors.
+
+
+## Useful functions
+
+The following is defined by default in `cf_launch`:
+* `f`: add filter easily
+* `n`: plot noise, as in ClampFit
+* `s`: select raw data channels (for .fast5 raw data only)
 
 
 ## Plotting
@@ -101,6 +111,7 @@ Examples:
 * `ind = cf.data.findNext(@(d) d(:,2) > 0.5, 1000)` finds the first time the first signal (d(:,1) is time) is larger than 0.5, starting at index 1000
 * `cf.data.addVirtualSignal(@(d) filt_lp(d,4,10000),'Low-pass 10kHz')` adds a 10 kHz low-pass filter to the data
 
+Also refer to `find_events.m` to see an example of many of the SignalData and CrampFit functions being used.
 
 
 ## More documentation

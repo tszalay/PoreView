@@ -57,6 +57,7 @@ Press 'Escape' to quit at any time.
 The following is defined by default in `cf_launch`:
 * `f`: add filter easily
 * `n`: plot noise, as in ClampFit
+* `p`: plot visible signals in a new figure
 * `s`: select raw data channels (for .fast5 raw data only)
 
 

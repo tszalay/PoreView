@@ -23,29 +23,38 @@ function plot_signals(cf)
     for i=1:npanels
         % copy the original axes from crampfit
         hax = copyobj(cf.getAxes(i),fig);
-        set(hax,'Units','Normalized');
-        set(hax,'XColor',0.92*[1 1 1],'YColor',0.92*[1 1 1]);
+        % turn off grid lines, but keep ticks
+        d = 0.015;
+        set(hax,'Units','Normalized','OuterPosition',[d,(npanels-i)/npanels+d,1-2*d,1/npanels-2*d]);
         set(hax,'XTick',get(hxax,'XTick'),'YTick',get(cf.psigs(i).yaxes,'YTick'));
-                
-        % create axes object to show labels and titles, but no curves
-        ax2 = axes('Units','Normalized','OuterPosition',[0 (npanels-i)/npanels 1 1/npanels],...
-            'Color','none','Box','on','TickDir','in','Parent',fig, ...
-            'XTickLabel',get(hxax,'XTickLabel'),'YTickLabel',get(cf.psigs(i).yaxes,'YTickLabel'), ...
-            'XTick',get(hxax,'XTick'),'YTick',get(cf.psigs(i).yaxes,'YTick'), ...
-            'XLim',get(hxax,'XLim'),'YLim',get(cf.psigs(i).yaxes,'YLim'),...
-            'FontSize',12);
+        set(hax,'XTickLabel',get(hxax,'XTickLabel'),'YTickLabel',get(cf.psigs(i).yaxes,'YTickLabel'));
+        set(hax,'XGrid','off','YGrid','off','XColor',[0 0 0],'YColor',[0 0 0]);
+        set(hax,'Box','on','XLimMode','manual','YLimMode','manual');
+        set(hax,'LooseInset',[0 0 0 0]);
         
-        set(ax2,'LooseInset',[0.07,0.2,0.02,0.13])
+        
+        % now manually plot some gridlines
+        xt = get(hax,'XTick');
+        yt = get(hax,'YTick');
+        xl = get(hax,'XLim');
+        yl = get(hax,'YLim');
+        % Matlab is terrible
+        xl = mean(xl) + 0.990*(xl-mean(xl));
+        yl = mean(yl) + 0.950*(yl-mean(yl));
+        
+        for x=xt
+            p = plot(hax,[x x],yl,'Color',0.92*[1 1 1],'Clipping','on');
+            uistack(p,'bottom')
+        end
+        for y=yt
+            p = plot(hax,xl,[y y],'Color',0.92*[1 1 1]);
+            uistack(p,'bottom')
+        end
         
         % set their labels and stuff
-        title(ax2,signames{cf.psigs(i).sigs(1)},'FontSize',14);
-        xlabel(ax2,'Time (s)')
-        ylabel(ax2,'Current (nA)')
-        
-        set(hax,'ActivePosition','OuterPosition');
-        
-        % and lock position of inner plot to outer plot
-        set(hax,'UserData',linkprop([ax2 hax],'Position'));
+        title(hax,signames{cf.psigs(i).sigs(1)},'FontSize',14);
+        xlabel(hax,'Time (s)')
+        ylabel(hax,'Current (nA)')
     end
     
     % also make a close callback, cause I'm spoiled and used to this

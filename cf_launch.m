@@ -61,6 +61,11 @@ function cf = cf_launch(s)
             end
             
             cf.refresh();
+            
+        elseif strcmp(e.Character,'p')
+            % make a nice plotted version of the CrampFit window
+            
+            plot_signals(cf);
 
         elseif strcmp(e.Character,'n')
             % display a noise plot, a la ClampFit

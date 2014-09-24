@@ -646,7 +646,7 @@ classdef SignalData < handle
             % many points, and we can't really request it
             ptend = min(obj.ndata-1,ptend);
             
-            if (ptstart < obj.cstart || ptend > obj.cend)
+            if (ptstart < obj.cstart || ptend >= obj.cend)
                 % cache miss, load a new cache
                 % size range requested
                 dpt = (ptend-ptstart);

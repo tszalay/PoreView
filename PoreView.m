@@ -160,8 +160,8 @@ classdef PoreView < handle
             hm = uimenu('Label','Help');
             uimenu(hm,'Label','PoreView','Callback',@(~,~) doc('PoreView.m'));
             uimenu(hm,'Label','SignalData','Callback',@(~,~) doc('SignalData.m'));
-            uimenu(hm,'Label','About','Callback',@(~,~) msgbox({'PoreView written by Tamas Szalay, April 2014.' ...
-                'This program and its author are not affiliated with Molecular Devices.'},'About PoreView'));
+            uimenu(hm,'Label','About','Callback',@(~,~) msgbox({'PoreView v1.0 - written by Tamas Szalay, April 2014.' '' ...
+                'This program and its author are not affiliated with Molecular Devices.' ''},'About PoreView'));
             
             % and the context menus
             obj.hcmenu = uicontextmenu();

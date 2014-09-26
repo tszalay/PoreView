@@ -1,11 +1,11 @@
-function DNAevent = find_events(cf)
+function DNAevent = find_events(pv)
 %FIND_EVENTS Finds events and returns an array of DNAevent structs
-%   events = find_events(cf)
-%   This is just an example of how to use CrampFit programmatically.
+%   events = find_events(pv)
+%   This is just an example of how to use PoreView programmatically.
 
-    % Alternatively, instead of passing a CrampFit instance to the code,
+    % Alternatively, instead of passing a PoreView instance to the code,
     % you could just initialize one here:
-    % cf = CrampFit(filename);
+    % pv = PoreView(filename);
     % and then add any virtual signals you need, set up the panels, and
     % then start finding events on your merry way...
 
@@ -13,16 +13,16 @@ function DNAevent = find_events(cf)
 
     thresh = 0.07;
     
-    % use the signal specified in the second panel of CrampFit for the
+    % use the signal specified in the second panel of PoreView for the
     % event finding. you'd probably just hardcode this in your own code.
-    sig = cf.psigs(2).sigs;
+    sig = pv.psigs(2).sigs;
 
     % loop through entire file, a bit at a time
     curind = 0;
     
     while 1
         % find next data exceeding threshold, stepping current index
-        curind = cf.data.findNext(@(d) d(:,sig) > thresh, curind);
+        curind = pv.data.findNext(@(d) d(:,sig) > thresh, curind);
         
         % if we didn't find any, we're done with the file
         if curind < 0
@@ -31,7 +31,7 @@ function DNAevent = find_events(cf)
         
         imin = curind;
         % find the end of the event
-        imax = cf.data.findNext(@(d) d(:,sig) < 0.75*thresh,curind);
+        imax = pv.data.findNext(@(d) d(:,sig) < 0.75*thresh,curind);
         
         % make sure we have an end for the event
         if imax < 0
@@ -46,7 +46,7 @@ function DNAevent = find_events(cf)
         curind = imax;
         
         % event? maybe event?
-        ts = cf.data.si*[imin imax];
+        ts = pv.data.si*[imin imax];
         
         % time range to view, extended past the event a bit
         viewt = [ts(1)-0.001, ts(2)+0.001];
@@ -56,7 +56,7 @@ function DNAevent = find_events(cf)
         
         % store the data we want, including times
         % note that we're only grabbing the signal we're analyzing
-        dna.data = cf.data.get(imin:imax,[1 sig]);
+        dna.data = pv.data.get(imin:imax,[1 sig]);
 
         % and the start and end times for the event
         dna.tstart = ts(1);
@@ -67,22 +67,22 @@ function DNAevent = find_events(cf)
         
         % now query on-screen, see what we think
         % first, zoom in
-        cf.setView(viewt);
+        pv.setView(viewt);
         % then, draw some stuff
-        h = cf.getAxes(2);
+        h = pv.getAxes(2);
         plot(h, [viewt(1) ts(1) ts(1) ts(2) ts(2) viewt(2)],...
             [0 0 dna.blockage dna.blockage 0 0],'r');
         % this line ignores the stuff you drew, in case you're wondering
-        cf.autoscaleY();
+        pv.autoscaleY();
         % do this just for kicks
-        cf.setCursors(ts);
+        pv.setCursors(ts);
         
         % if you want it to run automatically, this would be the part you
         % would change, or something
-        k = cf.waitKey();
+        k = pv.waitKey();
         % clear, and force a redraw. this way, you don't accidentally press
         % keys twice because you don't know if it's thinking or not.
-        cf.clearAxes();
+        pv.clearAxes();
         pause(0.01);
         
         % handle key input

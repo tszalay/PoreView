@@ -1,9 +1,9 @@
-classdef CrampFit < handle
-    %CRAMPFIT: Analysis suite for streaming signal data
+classdef PoreView < handle
+    %POREVIEW: Analysis suite for streaming signal data
     %
     % ---------------------------------------------------------------------
     %
-    % CRAMPFIT Usage:
+    % POREVIEW Usage:
     %   Adjusting view
     %       - Scrolling over a plot zooms the x-axis about the cursor position. 
     %       - Scrolling over a y-axis zooms that y axis about the cursor position.
@@ -21,8 +21,8 @@ classdef CrampFit < handle
     %
     % ---------------------------------------------------------------------
     %
-    % CRAMPFIT Methods:
-    %   CrampFit(fname) - Starts CrampFit. Filename can be empty, a
+    % POREVIEW Methods:
+    %   PoreView(fname) - Starts PoreView. Filename can be empty, a
     %       filename, or a directory where your files are stored.
     %   loadFile(fname) - Loads a file, if it can find it. If IV curve is
     %       selected, forwards to plot_iv. Creates default signal panels.
@@ -53,7 +53,7 @@ classdef CrampFit < handle
     %
     % ---------------------------------------------------------------------
     %
-    % CRAMPFIT Properties:
+    % POREVIEW Properties:
     %   data - Internal SignalData class, or [] if not loaded
     %   fig - Handle to figure object of program
     %   psigs - Struct array with signal panel information. Click for more.
@@ -94,10 +94,10 @@ classdef CrampFit < handle
     end
     
     methods
-        function obj = CrampFit(fname)
-            % cf = CRAMPFIT() - Create a new default instance of CrampFit
-            % cf = CRAMPFIT(filename) - Start by loading specified file
-            % cf = CRAMPFIT(directory) - Start in a directory (for open file dialog)
+        function obj = PoreView(fname)
+            % pv = POREVIEW() - Create a new default instance of PoreView
+            % pv = POREVIEW(filename) - Start by loading specified file
+            % pv = POREVIEW(directory) - Start in a directory (for open file dialog)
             
             % some UI defs
             obj.DEFS = [];
@@ -110,7 +110,7 @@ classdef CrampFit < handle
             obj.DEFS.CURSCOLOR      = [0 0.5 0.5];
             
             % start making GUI objects
-            obj.fig = figure('Name','CrampFit','MenuBar','none',...
+            obj.fig = figure('Name','PoreView','MenuBar','none',...
                 'NumberTitle','off','DockControls','off');
             
             % set its position
@@ -145,7 +145,7 @@ classdef CrampFit < handle
                     fn = fname;
                 end
                 % get a filename from dialog box
-                [FileName,PathName] = uigetfile('*.abf;*.cbf;*.fast5','CrampFit',fn);
+                [FileName,PathName] = uigetfile('*.abf;*.cbf;*.fast5','PoreView',fn);
                 % and load (or attempt to)
                 obj.loadFile([PathName FileName]);
             end
@@ -158,10 +158,10 @@ classdef CrampFit < handle
             uimenu(c,'Label','Bring','Callback',@(~,~) obj.bringCursors());
             uimenu(c,'Label','Show/Hide','Callback',@(~,~) obj.toggleCursors());
             hm = uimenu('Label','Help');
-            uimenu(hm,'Label','CrampFit','Callback',@(~,~) doc('CrampFit.m'));
+            uimenu(hm,'Label','PoreView','Callback',@(~,~) doc('PoreView.m'));
             uimenu(hm,'Label','SignalData','Callback',@(~,~) doc('SignalData.m'));
-            uimenu(hm,'Label','About','Callback',@(~,~) msgbox({'CrampFit written by Tamas Szalay, April 2014.' ...
-                'This program and its author are not affiliated with Molecular Devices.'},'About CrampFit'));
+            uimenu(hm,'Label','About','Callback',@(~,~) msgbox({'PoreView written by Tamas Szalay, April 2014.' ...
+                'This program and its author are not affiliated with Molecular Devices.'},'About PoreView'));
             
             % and the context menus
             obj.hcmenu = uicontextmenu();
@@ -242,7 +242,7 @@ classdef CrampFit < handle
             % and, conveniently, use them to display little arrows
             obj.cursors = [line() line()];
             set(obj.cursors,'Parent',obj.xaxes,'XData',[0 0],...
-                'YData',[-3 -3],'Visible','off','Tag','CFCURS',...
+                'YData',[-3 -3],'Visible','off','Tag','PVCURS',...
                 'Color',obj.DEFS.CURSCOLOR,'Marker','^',...
                 'MarkerFaceColor',obj.DEFS.CURSCOLOR,'MarkerSize',5,...
                 'Clipping','off','LineStyle','none');
@@ -590,7 +590,7 @@ classdef CrampFit < handle
             % get last bit of filename
             [~,fn,ext] = fileparts(fname);
             % and set title bar
-            set(obj.fig,'Name',['CrampFit - ' fn ext]);
+            set(obj.fig,'Name',['PoreView - ' fn ext]);
             
             % set internal data
             obj.data = d;
@@ -614,7 +614,7 @@ classdef CrampFit < handle
         
         function setKeyboardCallback(obj, fun)
             % obj.SETKEYBOARDCALLBACK(fun)
-            %   CrampFit will call fun whenever a key is pressed (except
+            %   PoreView will call fun whenever a key is pressed (except
             %   for default keys). The function should take a single
             %   argument, which is a Matlab keyboard event struct with
             %   fields e.Characer, e.Key, e.Modifier.
@@ -763,7 +763,7 @@ classdef CrampFit < handle
             % equivalent to 'hold on'
             set(sig.axes,'NextPlot','add','XLimMode','manual');
             % and gridify it
-            set(sig.axes,'XGrid','on','YGrid','on','Tag','CFAXES');
+            set(sig.axes,'XGrid','on','YGrid','on','Tag','PVAXES');
 
             % magic function to make Y-axes consistent, saving me some
             % bookkeeping headaches and stuff
@@ -790,7 +790,7 @@ classdef CrampFit < handle
                 % so first we make them all invisible
                 cvis = get(obj.cursors(1),'Visible');
                 set(obj.cursors,'Visible','off');
-                hs = findobj(sig.axes,'-not','Tag','CFPLOT');
+                hs = findobj(sig.axes,'-not','Tag','PVPLOT');
                 if (~isempty(obj.data))
                     % if no data, scale to user-plotted stuff
                     set(hs,'Visible','off');
@@ -824,7 +824,7 @@ classdef CrampFit < handle
             % make the cursors, and start them off invisible
             sig.cursors = [line() line()];
             set(sig.cursors,'Parent',sig.axes,'XData',[5 5],'YData',1e3*[-1 1],...
-                'Color',obj.DEFS.CURSCOLOR,'Visible','off','Tag','CFCURS');
+                'Color',obj.DEFS.CURSCOLOR,'Visible','off','Tag','PVCURS');
             
             % link their properties to the dummy x-axis cursor
             % this way we never have to think about it
@@ -1068,7 +1068,7 @@ classdef CrampFit < handle
             for i=1:length(obj.psigs)
                 % now, don't clear everything (using cla)
                 % instead, just delete the lines we drew previous
-                delete(findobj(obj.psigs(i).axes,'Tag','CFPLOT'));
+                delete(findobj(obj.psigs(i).axes,'Tag','PVPLOT'));
                 
                 % plot the selected signals, if any
                 if isempty(obj.psigs(i).sigs)
@@ -1081,7 +1081,7 @@ classdef CrampFit < handle
                 hps = plot(obj.psigs(i).axes,d(:,1),d(:,obj.psigs(i).sigs));
                 % and tag them to clear them next time, also make them
                 % non-clickable
-                set(hps,'Tag','CFPLOT','HitTest','off');
+                set(hps,'Tag','PVPLOT','HitTest','off');
                 % and move the plotted lines to the bottom of axes
                 % this line slows it down a bit, but oh well...
                 uistack(flipud(hps),'bottom');

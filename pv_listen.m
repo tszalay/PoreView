@@ -1,15 +1,15 @@
-function cf = cf_listen()
-    % CF_LISTEN()
+function pv = pv_listen()
+    % PV_LISTEN()
     %   This monitors a particular folder/subfolders for new abf/cbf files,
     %   and loads them as it finds them.
 
     % set the root directory to monitor here
     filedir = 'D:\AxoData\';
-	cf = CrampFit(filedir);
+	pv = PoreView(filedir);
     
     function keyFn(e)
         % do nothing if we don't have data loaded yet
-        if isempty(cf.data)
+        if isempty(pv.data)
             return
         end
         
@@ -20,18 +20,18 @@ function cf = cf_listen()
             % display a noise plot!
             
             % if cursors, do those
-            tr = cf.getCursors();
+            tr = pv.getCursors();
             if isempty(tr)
                 % otherwise, do the full view
-                tr = cf.getView();
+                tr = pv.getView();
             end
             % then make a noise plot
-            plot_noise(cf.data,tr);
+            plot_noise(pv.data,tr);
         end
     end
 
     % and set our all-important keyboard callback
-    cf.setKeyboardCallback(@keyFn);
+    pv.setKeyboardCallback(@keyFn);
     
     % now create a timer to check for new files
     [~,lastfiletime] = getNewestFile(filedir);
@@ -39,8 +39,8 @@ function cf = cf_listen()
     function timerFcn(o,~)
         [fn, ftime] = getNewestFile(filedir);
         
-        % also stop timer if crampfit closed
-        if ~ishandle(cf.fig)
+        % also stop timer if PoreView closed
+        if ~ishandle(pv.fig)
             stop(o);
             delete(o);
             disp('File checking stopped.')
@@ -52,7 +52,7 @@ function cf = cf_listen()
         age = (now - ftime)*24*60*60; % in seconds
         if (ftime > lastfiletime) && (age > 1)
             lastfiletime=ftime;
-            cf.loadFile(fn);
+            pv.loadFile(fn);
         end
     end
 

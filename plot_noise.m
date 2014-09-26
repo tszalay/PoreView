@@ -16,7 +16,7 @@ function plot_noise(sigdata, trange)
     % number of frames
     nframes = 0;
     
-    wh = waitbar(0,'Calculating power spectrum...','Name','CrampFit');
+    wh = waitbar(0,'Calculating power spectrum...','Name','PoreView');
     
     for ind=irange(1):fftsize:irange(2)
         % get only the real signals

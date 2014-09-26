@@ -1,33 +1,33 @@
-function plot_signals(cf)
+function plot_signals(pv)
 %PLOT_SIGNALS Makes a normal Matlab-style plot that copies currently
-%   visible CrampFit window, without all the UI junk
-%   plot_signals(cf)
+%   visible PoreView window, without all the UI junk
+%   plot_signals(pv)
     
     % create the figure
-    fig = figure('Name','CrampFit Signals','NumberTitle','off');
+    fig = figure('Name','PoreView Signals','NumberTitle','off');
     
     % set its position
     set(fig,'Units','normalized');
     set(fig,'Position',[0.1,0.1,0.8,0.8]);
     
     % set the axes color maps to be lighter if using reduced
-    CO = get(cf.fig, 'DefaultAxesColorOrder');
+    CO = get(pv.fig, 'DefaultAxesColorOrder');
     
     % now create subplots and copies of the panels and stuff
-    npanels = numel(cf.psigs);
+    npanels = numel(pv.psigs);
     
-    hxax = cf.xaxes;
+    hxax = pv.xaxes;
     
-    signames = cf.data.getSignalList();
+    signames = pv.data.getSignalList();
     
     for i=1:npanels
-        % copy the original axes from crampfit
-        hax = copyobj(cf.getAxes(i),fig);
+        % copy the original axes from PoreView
+        hax = copyobj(pv.getAxes(i),fig);
         % turn off grid lines, but keep ticks
         d = 0.015;
         set(hax,'Units','Normalized','OuterPosition',[d,(npanels-i)/npanels+d,1-2*d,1/npanels-2*d]);
-        set(hax,'XTick',get(hxax,'XTick'),'YTick',get(cf.psigs(i).yaxes,'YTick'));
-        set(hax,'XTickLabel',get(hxax,'XTickLabel'),'YTickLabel',get(cf.psigs(i).yaxes,'YTickLabel'));
+        set(hax,'XTick',get(hxax,'XTick'),'YTick',get(pv.psigs(i).yaxes,'YTick'));
+        set(hax,'XTickLabel',get(hxax,'XTickLabel'),'YTickLabel',get(pv.psigs(i).yaxes,'YTickLabel'));
         set(hax,'XGrid','off','YGrid','off','XColor',[0 0 0],'YColor',[0 0 0]);
         set(hax,'Box','on','XLimMode','manual','YLimMode','manual');
         set(hax,'LooseInset',[0 0 0 0]);
@@ -52,7 +52,7 @@ function plot_signals(cf)
         end
         
         % set their labels and stuff
-        title(hax,signames{cf.psigs(i).sigs(1)},'FontSize',14);
+        title(hax,signames{pv.psigs(i).sigs(1)},'FontSize',14);
         xlabel(hax,'Time (s)')
         ylabel(hax,'Current (nA)')
     end

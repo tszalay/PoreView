@@ -18,7 +18,9 @@ function plot_signals(pv)
     
     hxax = pv.xaxes;
     
-    signames = pv.data.getSignalList();
+    if ~isempty(pv.data)
+        signames = pv.data.getSignalList();
+    end
     
     for i=1:npanels
         % copy the original axes from PoreView
@@ -52,7 +54,11 @@ function plot_signals(pv)
         end
         
         % set their labels and stuff
-        title(hax,signames{pv.psigs(i).sigs(1)},'FontSize',14);
+        if ~isempty(pv.data)
+            title(hax,signames{pv.psigs(i).sigs(1)},'FontSize',14);
+        else
+            title(hax,'Plotted data','FontSize',14);
+        end
         xlabel(hax,'Time (s)')
         ylabel(hax,'Current (nA)')
     end

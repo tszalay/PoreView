@@ -14,6 +14,13 @@ function pv = pv_launch(s)
     ranges = [];
     
     function keyFn(e)
+        
+        % do this even if we don't have data loaded
+        if strcmp(e.Character,'p')
+            % make a nice plotted version of the PoreView window            
+            plot_signals(pv);
+        end
+        
         % do nothing if we don't have data loaded yet
         if isempty(pv.data)
             return
@@ -61,11 +68,6 @@ function pv = pv_launch(s)
             end
             
             pv.refresh();
-            
-        elseif strcmp(e.Character,'p')
-            % make a nice plotted version of the PoreView window
-            
-            plot_signals(pv);
 
         elseif strcmp(e.Character,'n')
             % display a noise plot, a la ClampFit

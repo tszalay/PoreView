@@ -107,7 +107,7 @@ classdef PoreView < handle
             obj.DEFS.BUTLEFT        = 3;
             obj.DEFS.BUTBOT         = 3;
             obj.DEFS.LABELWID       = 200;
-            obj.DEFS.CURSCOLOR      = [0 0.5 0.5];
+            obj.DEFS.CURSCOLOR      = [0.5 0.3 0.0];
             
             % start making GUI objects
             obj.fig = figure('Name','PoreView','MenuBar','none',...

@@ -399,6 +399,9 @@ classdef PoreView < handle
                 % figure out what we are over, if anything
                 [hnd,ind,pt,s] = getHandleAt();
                 
+                % get the scaling factor to zoom by
+                scl = 1.4 .^ (e.VerticalScrollCount);
+                
                 % quit if found nothing
                 if (hnd==-1)
                     return
@@ -408,15 +411,13 @@ classdef PoreView < handle
                     % we're scrolling inside a y-axis, scroll y-lims
                     pty = pt(2);
                     ylim = obj.psigs(ind).getY();
-                    s = 0.5*e.VerticalScrollCount;
-                    ylim = sort(pty + (1+s)*(ylim-pty));
+                    ylim = sort(pty + scl*(ylim-pty));
                     obj.psigs(ind).setY(ylim);
                 elseif (s == 'a' || s == 'x')
                     % we're scrolling in a plot, scroll the time axis
                     ptx = pt(1);
                     xlim = get(obj.xaxes,'XLim');
-                    s = 0.5*e.VerticalScrollCount;
-                    xlim = sort(ptx + (1+s)*(xlim-ptx));
+                    xlim = sort(ptx + scl*(xlim-ptx));
                     obj.setView(xlim);
                 end
             end

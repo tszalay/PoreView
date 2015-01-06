@@ -1079,6 +1079,11 @@ classdef PoreView < handle
                 % set the axes color order
                 set(obj.psigs(i).axes,'ColorOrder',CO);
                 
+                % Matlab R2014b disco bug fix (I'm sure there's more)
+                try
+                    set(gca, 'ColorOrderIndex', 1);
+                end
+                
                 % get the plot handles
                 hps = plot(obj.psigs(i).axes,d(:,1),d(:,obj.psigs(i).sigs));
                 % and tag them to clear them next time, also make them

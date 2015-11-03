@@ -111,6 +111,29 @@ function pv = pv_launch(s)
                 end
             end
             pv.refresh();
+            
+        elseif strcmp(e.Character,'k')
+            mf = matfile([pv.data.filename '_meta.mat']);
+            params = mf.params;
+            
+            % draw piezo + stepper positions
+            % double up the times
+            ts = params.timestamp;
+            ts = repmat(ts,1,2)';
+            % and remove first and last
+            ts = ts(2:end-1);
+            pos = params.piezo_position + params.stepper_position;
+            
+            for i=1:3
+                pv.addSignalPanel([]);
+                hax = pv.getAxes(numel(pv.psigs));
+                
+                ys = pos(:,i);
+                ys = repmat(ys,1,2)';
+                ys = ys(1:end-2);
+                plot(hax,ts,ys,'r');
+                pv.psigs(end).setY([min(ys),max(ys)]);
+            end
         end
     end
 

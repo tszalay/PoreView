@@ -1,4 +1,4 @@
-function plot_noise(sigdata, trange)
+function plot_noise(sigdata, trange, sigs)
 %PLOT_NOISE Makes or adds to existing noise plot
 %   plot_noise(sigdata, trange)
 %   Takes a SignalData object and a time range as input, uses the same
@@ -11,16 +11,22 @@ function plot_noise(sigdata, trange)
     
     fftsize = 2*65536;
 
+    % default signals
+    if nargin<3
+        sigs = 1+(1:sigdata.nsigs);
+    end
+    
     % only process real signals
-    dfft = zeros(fftsize,sigdata.nsigs);
+    dfft = zeros(fftsize,numel(sigs));
     % number of frames
     nframes = 0;
+
     
     wh = waitbar(0,'Calculating power spectrum...','Name','PoreView');
     
     for ind=irange(1):fftsize:irange(2)
         % get only the real signals
-        d = sigdata.get(ind:ind+fftsize-1,1+(1:sigdata.nsigs));
+        d = sigdata.get(ind:ind+fftsize-1,sigs);
         % quit if we don't have enough points
         if size(d,1) < fftsize
             break
